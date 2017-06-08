@@ -27,8 +27,6 @@ from datetime import timedelta
 import time
 import parse_cs_events as events_parser
 import simplejson as json
-# import os
-# import inspect
 import cs.hmac.client as client
 
 requests.packages.urllib3.disable_warnings()
@@ -75,11 +73,6 @@ class CrowdstrikeConnector(BaseConnector):
         # set the params, use the asset id as the appId that is passed Crowdstrike
         self._parameters = {'appId': self.get_asset_id().replace('-', '')}
 
-        # get the directory of the class
-        # dirpath = os.path.dirname(inspect.getfile(self.__class__))
-
-        # The state of the ingestion is stored in this file
-        # self._state_file_path = "{0}/{1}_serialized_data.json".format(dirpath, self.get_asset_id())
         self._state = self.load_state()
 
         return phantom.APP_SUCCESS
@@ -167,9 +160,14 @@ class CrowdstrikeConnector(BaseConnector):
         common_str = ' '.join(container['name'].split()[:-1])
         request_str = CROWDSTRIKE_FILTER_REQUEST_STR.format(self.get_asset_id(), common_str, gt_date.strftime('%Y-%m-%dT%H:%M:%SZ'))
 
-        self.debug_print('DB QUERY: {}'.format(request_str))
-        r = requests.get(request_str, verify=False)
-        self.debug_print('FINISHED REQUEST')
+        try:
+            r = requests.get(request_str, verify=False)
+        except Exception as e:
+            self.debug_print("Error making local rest call: {0}".format(str(e)))
+            self.debug_print('DB QUERY: {}'.format(request_str))
+            return phantom.APP_ERROR, None
+
+
         try:
             resp_json = r.json()
         except Exception as e:
@@ -178,17 +176,20 @@ class CrowdstrikeConnector(BaseConnector):
 
         count = resp_json.get('count', 0)
         if count:
-            most_recent = gt_date
-            most_recent_id = resp_json['data'][0]['id']
-            for container in resp_json['data']:
-                if most_recent <= datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ'):
-                    most_recent_id = container['id']
-            return phantom.APP_SUCCESS, most_recent_id
+            try:
+                most_recent = gt_date
+                most_recent_id = resp_json['data'][0]['id']
+                for container in resp_json['data']:
+                    if most_recent <= datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ'):
+                        most_recent_id = container['id']
+                return phantom.APP_SUCCESS, most_recent_id
+            except Exception as e:
+                self.debug_print("Caught Exception in parsing containers: {0}".format(str(e)))
+                return phantom.APP_ERROR, None
         return phantom.APP_ERROR, None
 
     def _save_results(self, results, param):
 
-        time_interval = 60 * 60 * 60
         artifact_count = int(param.get(phantom.APP_JSON_ARTIFACT_COUNT, CROWDSTRIKE_DEFAULT_ARTIFACT_COUNT))
 
         containers_processed = 0
@@ -207,6 +208,9 @@ class CrowdstrikeConnector(BaseConnector):
                 continue
 
             containers_processed += 1
+
+            config = self.get_config()
+            time_interval = config.get('time_interval', 0)
 
             ret_val, container_id = self._check_for_existing_container(result['container'], time_interval)
 

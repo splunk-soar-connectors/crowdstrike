@@ -139,29 +139,6 @@ def _collate_results(detection_events):
             for j, detection_event in enumerate(per_detection_machine_events):
 
                 artifact, cef = _create_artifact_from_event(detection_event)
-                # artifact = dict()
-                # cef = dict()
-                # artifact['cef'] = cef
-
-                # # Make a copy, since the dictionary will be modified
-                # event_details = dict(detection_event['event'])
-                # event_metadata = detection_event.get('metadata', {})
-
-                # # so this artifact needs to be added
-                # artifact.update(_artifact_common)
-                # artifact['source_data_identifier'] = event_metadata.get('offset', j)
-                # artifact['name'] = event_details.get('DetectDescription', 'Artifact # {0}'.format(j))
-                # artifact['severity'] = _severity_map.get(str(event_details.get('Severity', 3)), 'medioum')
-
-                # _set_cef_key_list(event_details, cef)
-
-                # # convert any remaining keys in the event_details to follow the cef naming conventions
-                # for k, v in event_details.iteritems():
-                #     cef[k[:1].lower() + k[1:]] = v
-                #     if (event_metadata):
-                #         # add the metadata as is, it already contains the keys in cef naming conventions
-                #         cef.update(event_metadata)
-                #     # append to the artifacts
 
                 if (cef):
                     artifacts.append(artifact)

@@ -37,7 +37,7 @@
         "required": true
       },
       "api_key": {
-        "data_type": "string",
+        "data_type": "password",
         "order": 3,
         "description": "API Key",
         "required": true
