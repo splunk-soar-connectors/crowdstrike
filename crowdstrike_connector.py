@@ -27,8 +27,6 @@ from datetime import timedelta
 import time
 import parse_cs_events as events_parser
 import simplejson as json
-import os
-import inspect
 import cs.hmac.client as client
 
 requests.packages.urllib3.disable_warnings()
@@ -50,8 +48,8 @@ class CrowdstrikeConnector(BaseConnector):
         self._token = None
         self._data_feed_url = None
         self._events = []
-        self._state_file_path = None
         self._headers = None
+        self._state = {}
 
     def initialize(self):
         """ Automatically called by the BaseConnector before the calls to the handle_action function"""
@@ -75,12 +73,12 @@ class CrowdstrikeConnector(BaseConnector):
         # set the params, use the asset id as the appId that is passed Crowdstrike
         self._parameters = {'appId': self.get_asset_id().replace('-', '')}
 
-        # get the directory of the class
-        dirpath = os.path.dirname(inspect.getfile(self.__class__))
+        self._state = self.load_state()
 
-        # The state of the ingestion is stored in this file
-        self._state_file_path = "{0}/{1}_serialized_data.json".format(dirpath, self.get_asset_id())
+        return phantom.APP_SUCCESS
 
+    def finalize(self):
+        self.save_state(self._state)
         return phantom.APP_SUCCESS
 
     def _get_stream(self):
@@ -153,6 +151,43 @@ class CrowdstrikeConnector(BaseConnector):
 
         return (phantom.APP_SUCCESS, event)
 
+    def _check_for_existing_container(self, container, time_interval):
+        if (not time_interval):
+            return None
+
+        gt_date = datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%SZ') - timedelta(seconds=time_interval)
+        # Cutoff Timestamp From String
+        common_str = ' '.join(container['name'].split()[:-1])
+        request_str = CROWDSTRIKE_FILTER_REQUEST_STR.format(self.get_asset_id(), common_str, gt_date.strftime('%Y-%m-%dT%H:%M:%SZ'))
+
+        try:
+            r = requests.get(request_str, verify=False)
+        except Exception as e:
+            self.debug_print("Error making local rest call: {0}".format(str(e)))
+            self.debug_print('DB QUERY: {}'.format(request_str))
+            return phantom.APP_ERROR, None
+
+
+        try:
+            resp_json = r.json()
+        except Exception as e:
+            self.debug_print('Exception caught: {0}'.format(str(e)))
+            return phantom.APP_ERROR, None
+
+        count = resp_json.get('count', 0)
+        if count:
+            try:
+                most_recent = gt_date
+                most_recent_id = resp_json['data'][0]['id']
+                for container in resp_json['data']:
+                    if most_recent <= datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ'):
+                        most_recent_id = container['id']
+                return phantom.APP_SUCCESS, most_recent_id
+            except Exception as e:
+                self.debug_print("Caught Exception in parsing containers: {0}".format(str(e)))
+                return phantom.APP_ERROR, None
+        return phantom.APP_ERROR, None
+
     def _save_results(self, results, param):
 
         artifact_count = int(param.get(phantom.APP_JSON_ARTIFACT_COUNT, CROWDSTRIKE_DEFAULT_ARTIFACT_COUNT))
@@ -174,9 +209,15 @@ class CrowdstrikeConnector(BaseConnector):
 
             containers_processed += 1
 
-            self.send_progress("Adding Container # {0}".format(i))
-            ret_val, response, container_id = self.save_container(result['container'])
-            self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
+            config = self.get_config()
+            time_interval = config.get('time_interval', 0)
+
+            ret_val, container_id = self._check_for_existing_container(result['container'], time_interval)
+
+            if (not container_id):
+                self.send_progress("Adding Container # {0}".format(i))
+                ret_val, response, container_id = self.save_container(result['container'])
+                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
 
             if (phantom.is_fail(ret_val)):
                 continue
@@ -206,28 +247,6 @@ class CrowdstrikeConnector(BaseConnector):
                 self.debug_print("save_artifact returns, value: {0}, reason: {1}, id: {2}".format(ret_val, status_string, artifact_id))
 
         return containers_processed
-
-    def _get_lower_id(self):
-
-        state = {}
-        try:
-            with open(self._state_file_path, 'r') as f:
-                in_json = f.read()
-                state = json.loads(in_json)
-        except:
-            state = {}
-
-        return state.get('offset_id', 0)
-
-    def _save_lower_id(self, offset_id):
-
-        try:
-            with open(self._state_file_path, 'w') as f:
-                f.write(json.dumps({'offset_id': offset_id}))
-        except:
-            pass
-
-        return 0
 
     def _make_rest_call(self, endpoint, result, headers={}, params={}, method='get'):
 
@@ -302,7 +321,8 @@ class CrowdstrikeConnector(BaseConnector):
 
         if (not self.is_poll_now()):
             # we only manger the ids in case of on_poll on the interval, on POLL NOW always start on 0
-            lower_id = int(self._get_lower_id())
+            # lower_id = int(self._get_lower_id())
+            lower_id = self._state.get('last_offset_id', 0)
 
         self.save_progress(CROWDSTRIKE_MSG_GETTING_EVENTS.format(lower_id=lower_id, max_events=max_events))
 
@@ -362,7 +382,8 @@ class CrowdstrikeConnector(BaseConnector):
             if (not self.is_poll_now()):
                 last_event = self._events[-1]
                 last_offset_id = last_event['metadata']['offset']
-                self._save_lower_id(int(last_offset_id) + 1)
+                # self._save_lower_id(int(last_offset_id) + 1)
+                self._state['last_offset_id'] = last_offset_id + 1
 
         return self.set_status(phantom.APP_SUCCESS)
 

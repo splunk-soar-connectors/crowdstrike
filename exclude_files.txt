@@ -1,3 +1,4 @@
 crowdstrike_connector.py
 crowdstrike_consts.py
 parse_cs_events.py
+.git*
