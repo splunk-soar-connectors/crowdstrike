@@ -12,3 +12,5 @@ of Phantom Cyber.
 -->
 
 <p>This App is an Ingestion source. In the Phantom documentation, in the <a href="../admin/">Administration Manual</a> under the <a href="../admin/sources">Data Sources</a> section, you will find an explanation of how Ingest Apps works and how information is extracted from the ingested data. There is a general explanation in Overview, and some individuals Apps have their own sections.</p>
+<p>This app will retrieve up to the specified number of events from the Streaming API each time it polls, retrieving them sequentially from oldest to newest, and create and save an artifact for each found event</p>
+<p>In the default behavior, each artifact will be in it's own seperate container. By specifying a time in seconds, events of the same time and on the same host which occur within that specified time will be merged into one container. By checking "Merge containers for Hostname and Eventname", all events which are of the same time and on the same host will be put into on container, regardless of the time between them</p>

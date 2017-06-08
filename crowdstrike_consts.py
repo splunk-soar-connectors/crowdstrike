@@ -17,6 +17,11 @@ CROWDSTRIKE_JSON_URL = "url"
 CROWDSTRIKE_JSON_DEF_NUM_DAYS = "interval_days"
 CROWDSTRIKE_JSON_MAX_EVENTS = "max_events"
 
+CROWDSTRIKE_FILTER_REQUEST_STR = 'https://127.0.0.1/rest/container?page_size=0'\
+                                 '&_filter_asset={0}'\
+                                 '&_filter_name__contains="{1}"'\
+                                 '&_filter_start_time__gte="{2}"'
+
 # Status messages for the app
 CROWDSTRIKE_SUCC_CONNECTIVITY_TEST = "Connectivity test passed"
 CROWDSTRIKE_ERR_CONNECTIVITY_TEST = "Connectivity test failed"
