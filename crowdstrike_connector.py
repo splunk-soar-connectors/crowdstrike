@@ -146,14 +146,14 @@ class CrowdstrikeConnector(BaseConnector):
         try:
             event = json.loads(data.strip('\r\n '))
         except Exception as e:
-            self.debug_print("Exception while parsing data: ", e.message)
+            self.debug_print(None"Exception while parsing data: ", e.message)
             return (phantom.APP_ERROR, data)
 
         return (phantom.APP_SUCCESS, event)
 
     def _check_for_existing_container(self, container, time_interval):
         if (not time_interval):
-            return None
+            return phantom.APP_ERROR, None
 
         gt_date = datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%SZ') - timedelta(seconds=time_interval)
         # Cutoff Timestamp From String
@@ -166,7 +166,6 @@ class CrowdstrikeConnector(BaseConnector):
             self.debug_print("Error making local rest call: {0}".format(str(e)))
             self.debug_print('DB QUERY: {}'.format(request_str))
             return phantom.APP_ERROR, None
-
 
         try:
             resp_json = r.json()
@@ -211,6 +210,7 @@ class CrowdstrikeConnector(BaseConnector):
 
             config = self.get_config()
             time_interval = config.get('time_interval', 0)
+
 
             ret_val, container_id = self._check_for_existing_container(result['container'], time_interval)
 
@@ -382,7 +382,6 @@ class CrowdstrikeConnector(BaseConnector):
             if (not self.is_poll_now()):
                 last_event = self._events[-1]
                 last_offset_id = last_event['metadata']['offset']
-                # self._save_lower_id(int(last_offset_id) + 1)
                 self._state['last_offset_id'] = last_offset_id + 1
 
         return self.set_status(phantom.APP_SUCCESS)
