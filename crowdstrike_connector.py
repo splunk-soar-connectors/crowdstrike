@@ -146,7 +146,7 @@ class CrowdstrikeConnector(BaseConnector):
         try:
             event = json.loads(data.strip('\r\n '))
         except Exception as e:
-            self.debug_print(None"Exception while parsing data: ", e.message)
+            self.debug_print("Exception while parsing data: ", e.message)
             return (phantom.APP_ERROR, data)
 
         return (phantom.APP_SUCCESS, event)
