@@ -71,7 +71,8 @@ class CrowdstrikeConnector(BaseConnector):
         self._auth = client.Auth(uuid=str(config[CROWDSTRIKE_JSON_UUID]), api_key=str(config[CROWDSTRIKE_JSON_API_KEY]), access=str(access_key))
 
         # set the params, use the asset id as the appId that is passed Crowdstrike
-        self._parameters = {'appId': self.get_asset_id().replace('-', '')}
+        app_id = config.get('app_id', self.get_asset_id().replace('-', ''))
+        self._parameters = {'appId': app_id}
 
         self._state = self.load_state()
 
@@ -210,7 +211,6 @@ class CrowdstrikeConnector(BaseConnector):
 
             config = self.get_config()
             time_interval = config.get('time_interval', 0)
-
 
             ret_val, container_id = self._check_for_existing_container(result['container'], time_interval)
 
