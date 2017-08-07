@@ -29,8 +29,6 @@ import parse_cs_events as events_parser
 import simplejson as json
 import cs.hmac.client as client
 
-requests.packages.urllib3.disable_warnings()
-
 
 class CrowdstrikeConnector(BaseConnector):
 
