@@ -31,8 +31,6 @@ import os
 import inspect
 import cs.hmac.client as client
 
-requests.packages.urllib3.disable_warnings()
-
 
 class CrowdstrikeConnector(BaseConnector):
 
