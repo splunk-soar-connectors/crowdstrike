@@ -1,68 +1,14 @@
-<!--
-    File: readme.html
+<!-- 
+File: readme.html
 
-    Copyright (c) Phantom Cyber Corporation, 2014-2016
+Copyright (c) Phantom Cyber Corporation, 2014-2017
 
-    This unpublished material is proprietary to Phantom Cyber.
-    All rights reserved. The methods and
-    techniques described herein are considered trade secrets
-    and/or confidential. Reproduction or distribution, in whole
-    or in part, is forbidden except by express written permission
-    of Phantom Cyber.
+This unpublished material is proprietary to Phantom Cyber.
+All rights reserved. The methods and
+techniques described herein are considered trade secrets
+and/or confidential. Reproduction or distribution, in whole
+or in part, is forbidden except by express written permission
+of Phantom Cyber.
 -->
 
 <p>This App is an Ingestion source. In the Phantom documentation, in the <a href="../admin/">Administration Manual</a> under the <a href="../admin/sources">Data Sources</a> section, you will find an explanation of how Ingest Apps works and how information is extracted from the ingested data. There is a general explanation in Overview, and some individuals Apps have their own sections.</p>
-<p>During POLL NOW, the app starts from the 1st event that it can query upto "Maximum events" configured.</p>
-<p>During sceduled polls, the app starts from the 1st event that it can query upto "Maximum events" configured, but then remembers the last event that it queried for. In the next scheduled poll, it will start from the last event.</p>
-<p>In the default behavior, each artifact will be in it's own seperate container. By specifying a time in seconds, events of the same type and on the same host which occur within that specified time will be merged into one container. By checking "Merge containers for Hostname and Eventname", all events which are of the same type and on the same host will be put into one container, regardless of the time between them</p>
-<p>
-The DetectionSummaryEvent is parsed to extract the following values into an Artifact
-<table style="width:100%">
-    <tr>
-        <td><b>Artifact Field</b></td>
-        <td><b>Event Field</b></td> 
-    </tr>
-    <tr>
-        <td>cef.sourceUserName</td>
-        <td>UserName</td> 
-    </tr>
-    <tr>
-        <td>cef.fileName</td>
-        <td>FileName</td> 
-    </tr>
-    <tr>
-        <td>cef.filePath</td>
-        <td>FilePath</td> 
-    </tr>
-    <tr>
-        <td>cef.sourceHostName</td>
-        <td>ComputerName</td> 
-    </tr>
-    <tr>
-        <td>cef.sourceNtDomain</td>
-        <td>MachineDomain</td> 
-    </tr>
-    <tr>
-        <td>cef.hash</td>
-        <td>MD5String</td> 
-    </tr>
-    <tr>
-        <td>cef.hash</td>
-        <td>SHA1String</td> 
-    </tr>
-    <tr>
-        <td>cef.hash</td>
-        <td>SHA256STring</td> 
-    </tr>
-    <tr>
-        <td>cef.cs1</td>
-        <td>cmdLine</td> 
-    </tr>
-</table>
-Since the command line cannot be represented by a native cef field, it is placed in the <b>cs1</b> cef key and the cs1Label key is set to "cmdLine".
-</p><br>
-<h2 id="appid">App ID</h2>
-<p>
-Optionally, you can specify an <b>App ID</b> to be used with the Streaming API. If one isn't set, it will default to this apps UUID.<br>
-It is recommended to have a unique <b>App ID</b> for each connection to the Streaming API. That is to say, if you are planning on having multiple assets using the Streaming API at once, you should give them unique App IDs.
-</p>
