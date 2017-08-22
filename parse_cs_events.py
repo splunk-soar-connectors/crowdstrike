@@ -108,8 +108,6 @@ def _collate_results(detection_events):
     # Get the set of unique detection name, these will be the containers
     detection_names = set([x['event'].get('DetectName') for x in detection_events])
 
-    # container_id = 0
-
     for i, detection_name in enumerate(detection_names):
 
         per_detection_events = [x for x in detection_events if x['event'].get('DetectName') == detection_name]
@@ -129,10 +127,6 @@ def _collate_results(detection_events):
             ingest_event['container'] = container
             container.update(_container_common)
             container['name'] = "{0} {1}".format(detection_name, '' if (not machine_name) else 'on {0}'.format(machine_name))
-
-            # Don't add the SDI for the container, the platform generates the proper thing
-            # container['source_data_identifier'] = container_id
-            # container_id += 1
 
             # now the artifacts
             ingest_event['artifacts'] = artifacts = []
@@ -172,8 +166,6 @@ def _create_artifact_from_event(event):
         if (event_metadata):
             # add the metadata as is, it already contains the keys in cef naming conventions
             cef.update(event_metadata)
-        # append to the artifacts
-        # artifacts.append(artifact)
 
     artifact['data'] = event
 
@@ -190,9 +182,8 @@ def _get_str_from_epoch(epoch_milli):
 
 
 def parse_events(events, base_connector, collate):
-    results = []
 
-    # base_connector.debug_print("Got event_types: {0}".format(', '.join(_get_event_types(events))))
+    results = []
 
     base_connector.save_progress("Extracting Detection events")
 
