@@ -1,7 +1,7 @@
 # --
 # File: crowdstrike_connector.py
 #
-# Copyright (c) Phantom Cyber Corporation, 2014-2018
+# Copyright (c) Phantom Cyber Corporation, 2015-2018
 #
 # This unpublished material is proprietary to Phantom Cyber.
 # All rights reserved. The methods and
@@ -154,7 +154,6 @@ class CrowdstrikeConnector(BaseConnector):
         if (not time_interval) or (not collate):
             return phantom.APP_ERROR, None
 
-        # gt_date = datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%SZ') - timedelta(seconds=time_interval)
         gt_date = datetime.utcnow() - timedelta(seconds=int(time_interval))
         # Cutoff Timestamp From String
         common_str = ' '.join(container['name'].split()[:-1])
@@ -245,8 +244,8 @@ class CrowdstrikeConnector(BaseConnector):
 
                 artifact['container_id'] = container_id
 
-            ret_val, status_string, artifact_id = self.save_artifacts(artifacts)
-            self.debug_print("save_artifact returns, value: {0}, reason: {1}, id: {2}".format(ret_val, status_string, artifact_id))
+            ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
+            self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
 
         return containers_processed
 
