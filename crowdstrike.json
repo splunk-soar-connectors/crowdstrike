@@ -13,7 +13,8 @@
     "product_version_regex": ".*",
     "min_phantom_version": "3.0.190",
     "app_config_render": "default",
-    "logo": "crowdstrike.png",
+    "logo": "logo_crowdstrike.svg",
+    "logo_dark": "logo_crowdstrike_dark.svg",
     "license": "Copyright (c) Phantom Cyber Corporation, 2015-2018",
     "configuration": {
         "url": {
