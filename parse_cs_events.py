@@ -2,7 +2,7 @@
 # --
 # File: ./crowdstrike/parse_cs_events.py
 #
-# Copyright (c) Phantom Cyber Corporation, 2014-2017
+# Copyright (c) Phantom Cyber Corporation, 2015-2018
 #
 # This unpublished material is proprietary to Phantom Cyber.
 # All rights reserved. The methods and
@@ -207,13 +207,11 @@ def parse_events(events, base_connector, collate):
         detection_name = event_details.get('DetectName', 'Unknown Detection')
         hostname = event_details.get('ComputerName', 'Unknown Host')
         creation_time = curr_event.get('metadata').get('eventCreationTime', '')
-        # creation_time_dt = None
 
         ingest_event = dict()
         results.append(ingest_event)
 
         if (creation_time):
-            # creation_time_dt = _get_dt_from_epoch(creation_time)
             creation_time = _get_str_from_epoch(creation_time)
 
         # Create the container
@@ -222,8 +220,6 @@ def parse_events(events, base_connector, collate):
         container.update(_container_common)
         container['name'] = "{0} on {1} at {2}".format(detection_name, hostname, creation_time)
         container['severity'] = _severity_map.get(str(event_details.get('Severity', 3)), 'medium')
-        base_connector.debug_print("CREATION TIME {0}".format(creation_time))
-        container['start_time'] = creation_time
 
         # now the artifacts, will just be one
         ingest_event['artifacts'] = artifacts = []
