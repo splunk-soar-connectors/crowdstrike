@@ -165,6 +165,11 @@ def _set_cef_types(artifact, cef):
     cef_types = dict()
 
     for k, v in cef.iteritems():
+
+        if (k.lower().endswith('filename')):
+            cef_types[k] = ['file name']
+            continue
+
         for contains, function in ph_utils.CONTAINS_VALIDATORS.iteritems():
             if (contains in IGNORE_CONTAINS_VALIDATORS):
                 continue
@@ -295,6 +300,7 @@ def _create_artifacts_from_event(event):
     _parse_sub_events(artifacts, cef, 'documentsAccessed', parent_sdi=artifact['source_data_identifier'])
     _parse_sub_events(artifacts, cef, 'scanResults', parent_sdi=artifact['source_data_identifier'])
     _parse_sub_events(artifacts, cef, 'executablesWritten', parent_sdi=artifact['source_data_identifier'])
+    _parse_sub_events(artifacts, cef, 'quarantineFiles', parent_sdi=artifact['source_data_identifier'])
 
     return artifacts
 
