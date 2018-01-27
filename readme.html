@@ -59,8 +59,17 @@ The DetectionSummaryEvent is parsed to extract the following values into an Arti
         <td>cmdLine</td>
     </tr>
 </table>
-Since the command line cannot be represented by a native cef field, it is placed in the <b>cs1</b> cef key and the cs1Label key is set to "cmdLine".
-</p><br>
+<p>
+The App also parses the following sub events into their own Artifacts
+<ul>
+  <li>Documents Accessed</li>
+  <li>Executables Written</li>
+  <li>Network Access</li>
+  <li>Scan Result</li>
+</ul>
+</p>
+Each of the above <b>sub events</b> has a cef key called <b>parentSdi</b> that matches with the Source ID of the Main Event Artifact.
+</p>
 <h2 id="appid">App ID</h2>
 <p>
 Optionally, you can specify an <b>App ID</b> to be used with the Streaming API. If one isn't set, it will default to this apps UUID.<br>
