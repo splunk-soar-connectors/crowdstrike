@@ -153,9 +153,24 @@ def _collate_results(detection_events):
 
 def _convert_to_cef_dict(output_dict, input_dict):
 
+    time_keys = list()
     # convert any remaining keys in the event_details to follow the cef naming conventions
     for k, v in input_dict.iteritems():
-        output_dict[k[:1].lower() + k[1:]] = v
+        new_key_name = k[:1].lower() + k[1:]
+        output_dict[new_key_name] = v
+        if (new_key_name.lower().endswith('time')):
+            time_keys.append(new_key_name)
+
+    for curr_item in time_keys:
+        v = output_dict.get(curr_item)
+        if (not v):
+            continue
+        try:
+            time_epoch = int(v)
+        except:
+            continue
+        key_name = '{0}Iso'.format(curr_item)
+        output_dict[key_name] = datetime.utcfromtimestamp(time_epoch).isoformat() + 'Z'
 
     return output_dict
 
@@ -280,8 +295,7 @@ def _create_artifacts_from_event(event):
     _set_cef_key_list(event_details, cef)
 
     # convert any remaining keys in the event_details to follow the cef naming conventions
-    for k, v in event_details.iteritems():
-        cef[k[:1].lower() + k[1:]] = v
+    _convert_to_cef_dict(cef, event_details)
 
     if (cef):
         if (event_metadata):
