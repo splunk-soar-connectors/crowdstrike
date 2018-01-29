@@ -14,7 +14,10 @@
 # --
 
 from datetime import datetime
+from phantom import utils as ph_utils
 
+import hashlib
+import json
 
 _container_common = {
     "description": "Container added by Phantom",
@@ -28,6 +31,11 @@ _artifact_common = {
     "run_automation": False  # Don't run any playbooks, when this artifact is added
 }
 
+_sub_artifact_common = {
+    "label": "sub event",
+    "description": "Artifact added by Phantom",
+    "run_automation": False  # Don't run any playbooks, when this artifact is added
+}
 _severity_map = {
         '0': 'low',
         '1': 'low',
@@ -36,6 +44,9 @@ _severity_map = {
         '4': 'high',
         '5': 'high'
 }
+
+IGNORE_CONTAINS_VALIDATORS = ['domain', 'host name']
+key_to_name = dict()
 
 
 def _get_value(in_dict, in_key, def_val=None, strip_it=True):
@@ -132,15 +143,140 @@ def _collate_results(detection_events):
             ingest_event['artifacts'] = artifacts = []
             for j, detection_event in enumerate(per_detection_machine_events):
 
-                artifact, cef = _create_artifact_from_event(detection_event)
+                artifacts_ret = _create_artifacts_from_event(detection_event)
 
-                if (cef):
-                    artifacts.append(artifact)
+                if (artifacts_ret):
+                    artifacts.extend(artifacts_ret)
 
     return results
 
 
-def _create_artifact_from_event(event):
+def _convert_to_cef_dict(output_dict, input_dict):
+
+    time_keys = list()
+    # convert any remaining keys in the event_details to follow the cef naming conventions
+    for k, v in input_dict.iteritems():
+        new_key_name = k[:1].lower() + k[1:]
+        output_dict[new_key_name] = v
+        if (new_key_name.lower().endswith('time')):
+            time_keys.append(new_key_name)
+
+    for curr_item in time_keys:
+        v = output_dict.get(curr_item)
+        if (not v):
+            continue
+        try:
+            time_epoch = int(v)
+        except:
+            continue
+        key_name = '{0}Iso'.format(curr_item)
+        output_dict[key_name] = datetime.utcfromtimestamp(time_epoch).isoformat() + 'Z'
+
+    return output_dict
+
+
+def _set_cef_types(artifact, cef):
+
+    cef_types = dict()
+
+    for k, v in cef.iteritems():
+
+        if (k.lower().endswith('filename')):
+            cef_types[k] = ['file name']
+            continue
+
+        for contains, function in ph_utils.CONTAINS_VALIDATORS.iteritems():
+            if (contains in IGNORE_CONTAINS_VALIDATORS):
+                continue
+            if (function(str(v))):
+                cef_types[k] = [contains]
+                # it's ok to add only one contains
+                break
+
+    if (not cef_types):
+        return False
+
+    artifact['cef_types'] = cef_types
+
+    return True
+
+
+def _get_artifact_name(key_name):
+
+    # generate the artifact name, based on the key name
+    # There should be a regex based way of replacing a Capital with '<space><CaP>'
+    artifact_name = key_to_name.get(key_name, '')
+
+    if (artifact_name):
+        return artifact_name
+
+    for curr_char in key_name:
+
+        if (curr_char.isupper()):
+            artifact_name += ' '
+
+        artifact_name += curr_char
+
+    artifact_name = artifact_name.title()
+
+    key_to_name[key_name] = artifact_name
+
+    return artifact_name
+
+
+def _create_dict_hash( input_dict):
+
+    input_dict_str = None
+
+    if (not input_dict):
+        return None
+
+    try:
+        input_dict_str = json.dumps(input_dict, sort_keys=True)
+    except:
+        return None
+
+    return hashlib.md5(input_dict_str).hexdigest()
+
+
+def _parse_sub_events(artifacts_list, input_dict, key_name, parent_sdi):
+
+    """ A generic parser function
+    """
+
+    # check if there is any data that can be parsed
+    if (key_name not in input_dict):
+        return 0
+
+    input_list = input_dict[key_name]
+
+    # make it into a list
+    if (type(input_list) != list):
+        input_list = [input_list]
+
+    artifact_name = _get_artifact_name(key_name)
+
+    artifacts_len = len(artifacts_list)
+
+    for curr_item in input_list:
+        artifact = dict()
+        artifact.update(_sub_artifact_common)
+        artifact['name'] = artifact_name
+        artifact['cef'] = cef = dict()
+        _convert_to_cef_dict(cef, curr_item)
+
+        if (not cef):
+            continue
+
+        cef['parentSdi'] = parent_sdi
+        artifacts_list.append(artifact)
+        artifact['source_data_identifier'] = _create_dict_hash(artifact)
+        _set_cef_types(artifact, cef)
+
+    return (len(artifacts_list) - artifacts_len)
+
+
+def _create_artifacts_from_event(event):
 
     # Make a copy, since the dictionary will be modified
     event_details = dict(event['event'])
@@ -159,8 +295,7 @@ def _create_artifact_from_event(event):
     _set_cef_key_list(event_details, cef)
 
     # convert any remaining keys in the event_details to follow the cef naming conventions
-    for k, v in event_details.iteritems():
-        cef[k[:1].lower() + k[1:]] = v
+    _convert_to_cef_dict(cef, event_details)
 
     if (cef):
         if (event_metadata):
@@ -169,7 +304,19 @@ def _create_artifact_from_event(event):
 
     artifact['data'] = event
 
-    return artifact, cef
+    if (not cef):
+        return []
+
+    artifacts = list()
+    artifacts.append(artifact)
+
+    _parse_sub_events(artifacts, cef, 'networkAccesses', parent_sdi=artifact['source_data_identifier'])
+    _parse_sub_events(artifacts, cef, 'documentsAccessed', parent_sdi=artifact['source_data_identifier'])
+    _parse_sub_events(artifacts, cef, 'scanResults', parent_sdi=artifact['source_data_identifier'])
+    _parse_sub_events(artifacts, cef, 'executablesWritten', parent_sdi=artifact['source_data_identifier'])
+    _parse_sub_events(artifacts, cef, 'quarantineFiles', parent_sdi=artifact['source_data_identifier'])
+
+    return artifacts
 
 
 def _get_dt_from_epoch(epoch_milli):
@@ -201,7 +348,7 @@ def parse_events(events, base_connector, collate):
 
     for i, curr_event in enumerate(detection_events):
 
-        artifact, cef = _create_artifact_from_event(curr_event)
+        artifacts_ret = _create_artifacts_from_event(curr_event)
 
         event_details = curr_event['event']
         detection_name = event_details.get('DetectName', 'Unknown Detection')
@@ -223,6 +370,6 @@ def parse_events(events, base_connector, collate):
 
         # now the artifacts, will just be one
         ingest_event['artifacts'] = artifacts = []
-        artifacts.append(artifact)
+        artifacts.extend(artifacts_ret)
 
     return results
