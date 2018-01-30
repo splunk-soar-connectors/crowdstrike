@@ -190,20 +190,25 @@ class CrowdstrikeConnector(BaseConnector):
 
         artifact_count = int(param.get(phantom.APP_JSON_ARTIFACT_COUNT, CROWDSTRIKE_DEFAULT_ARTIFACT_COUNT))
 
+        reused_containers = 0
+
         containers_processed = 0
         for i, result in enumerate(results):
 
             self.send_progress("Adding Container # {0}".format(i))
             # result is a dictionary of a single container and artifacts
             if ('container' not in result):
+                self.debug_print("Skipping empty container # {0}".format(i))
                 continue
 
             if ('artifacts' not in result):
-                # igonore containers without artifacts
+                # ignore containers without artifacts
+                self.debug_print("Skipping container # {0} without artifacts".format(i))
                 continue
 
             if (len(result['artifacts']) == 0):
-                # igonore containers without artifacts
+                # ignore containers without artifacts
+                self.debug_print("Skipping container # {0} with 0 artifacts".format(i))
                 continue
 
             containers_processed += 1
@@ -219,6 +224,9 @@ class CrowdstrikeConnector(BaseConnector):
                 # Do not collate this container
                 ret_val, response, container_id = self.save_container(result['container'])
                 self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
+            else:
+                self.debug_print("Reusing container with id: {0}".format(container_id))
+                reused_containers += 1
 
             if (phantom.is_fail(ret_val)):
                 continue
@@ -245,6 +253,9 @@ class CrowdstrikeConnector(BaseConnector):
 
             ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
             self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+
+        if (reused_containers and config.get('collate')):
+            self.save_progress("Some containers were re-used due to collate set to True")
 
         return containers_processed
 
