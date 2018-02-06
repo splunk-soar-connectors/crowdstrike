@@ -243,7 +243,7 @@ def _create_dict_hash( input_dict):
     return hashlib.md5(input_dict_str).hexdigest()
 
 
-def _parse_sub_events(artifacts_list, input_dict, key_name, parent_sdi):
+def _parse_sub_events(artifacts_list, input_dict, key_name, parent_artifact):
 
     """ A generic parser function
     """
@@ -252,6 +252,7 @@ def _parse_sub_events(artifacts_list, input_dict, key_name, parent_sdi):
     if (key_name not in input_dict):
         return 0
 
+    parent_sdi = parent_artifact['source_data_identifier']
     input_list = input_dict[key_name]
 
     # make it into a list
@@ -273,6 +274,7 @@ def _parse_sub_events(artifacts_list, input_dict, key_name, parent_sdi):
             continue
 
         cef['parentSdi'] = parent_sdi
+        artifact['severity'] = parent_artifact['severity']
         artifacts_list.append(artifact)
         artifact['source_data_identifier'] = _create_dict_hash(artifact)
         _set_cef_types(artifact, cef)
@@ -314,12 +316,12 @@ def _create_artifacts_from_event(event):
     artifacts = list()
     artifacts.append(artifact)
 
-    _parse_sub_events(artifacts, cef, 'networkAccesses', parent_sdi=artifact['source_data_identifier'])
-    _parse_sub_events(artifacts, cef, 'documentsAccessed', parent_sdi=artifact['source_data_identifier'])
-    _parse_sub_events(artifacts, cef, 'scanResults', parent_sdi=artifact['source_data_identifier'])
-    _parse_sub_events(artifacts, cef, 'executablesWritten', parent_sdi=artifact['source_data_identifier'])
-    _parse_sub_events(artifacts, cef, 'quarantineFiles', parent_sdi=artifact['source_data_identifier'])
-    _parse_sub_events(artifacts, cef, 'dnsRequests', parent_sdi=artifact['source_data_identifier'])
+    _parse_sub_events(artifacts, cef, 'networkAccesses', artifact)
+    _parse_sub_events(artifacts, cef, 'documentsAccessed', artifact)
+    _parse_sub_events(artifacts, cef, 'scanResults', artifact)
+    _parse_sub_events(artifacts, cef, 'executablesWritten', artifact)
+    _parse_sub_events(artifacts, cef, 'quarantineFiles', artifact)
+    _parse_sub_events(artifacts, cef, 'dnsRequests', artifact)
 
     return artifacts
 
