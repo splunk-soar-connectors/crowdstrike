@@ -67,9 +67,9 @@ The App also parses the following sub events into their own Artifacts
   <li>Network Access</li>
   <li>Scan Result</li>
   <li>Quarantine Files</li>
+  <li>Dns Requests</li>
 </ul>
-</p>
-Each of the above <b>sub events</b> has a cef key called <b>parentSdi</b> that matches with the Source ID of the Main Event Artifact.
+Each of the sub event artifacts created have a cef key called <b>parentSdi</b> that stands for Parent Source Data Identifier. This value points to the SDI of the main event that the sub events were generated from.
 </p>
 <h2 id="appid">App ID</h2>
 <p>
