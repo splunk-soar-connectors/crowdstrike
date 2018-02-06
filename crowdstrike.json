@@ -1,7 +1,7 @@
 {
     "appid": "814d0ca3-12e2-4f04-b656-2d1d3ca91adf",
     "name": "Streaming API",
-    "description": "This app integrates with CrowdStrike security services to implement ingestion of endpoint security data.",
+    "description": "This app integrates with CrowdStrike security services to implement ingestion of endpoint security data",
     "publisher": "Phantom",
     "type": "endpoint",
     "main_module": "crowdstrike_connector.pyc",
@@ -91,7 +91,7 @@
     "actions": [
         {
             "action": "test connectivity",
-            "description": "Validate the asset configuration for connectivity. This action logs into the site to check the connection and credentials.",
+            "description": "Validate the asset configuration for connectivity. This action logs into the site to check the connection and credentials",
             "type": "test",
             "identifier": "test_asset_connectivity",
             "read_only": true,
@@ -101,7 +101,7 @@
         },
         {
             "action": "on poll",
-            "description": "Callback action for the on_poll ingest functionality.",
+            "description": "Callback action for the on_poll ingest functionality",
             "verbose": "This action remembers the last event id that was queried for. The next ingestion carried out will query for later events ids. This way the same events are not queried for in every run. However in case of 'POLL NOW' queried event ids will not be remembered.",
             "type": "ingest",
             "identifier": "on_poll",
