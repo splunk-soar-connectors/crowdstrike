@@ -14,9 +14,8 @@
 <p>This App is an Ingestion source. In the Phantom documentation, in the <a href="../admin/">Administration Manual</a> under the <a href="../admin/sources">Data Sources</a> section, you will find an explanation of how Ingest Apps works and how information is extracted from the ingested data. There is a general explanation in Overview, and some individuals Apps have their own sections.</p>
 <p>During POLL NOW, the app starts from the 1st event that it can query up to "Maximum events" configured.</p>
 <p>During scheduled polls, the app starts from the 1st event that it can query up to "Maximum events" configured, but then remembers the last event that it queried for. In the next scheduled poll, it will start from the last event.</p>
-<p>In the default behavior, each artifact will be in its own seperate container. By specifying a time in seconds, events of the same type and on the same host which occur within that specified time will be merged into one container. By checking "Merge containers for Hostname and Eventname", all events which are of the same type and on the same host will be put into one container, regardless of the time between them</p>
 <p>
-The default behavior of the app is that each event will be placed in it's own container.
+The default behavior of the app is that each event will be placed in its own container.
 By checking "Merge containers for Hostname and Eventname" as well as specifying an interval, all events which are of the same type and on the same host will be put into one container, as long as the time between those two events is less than the interval.</p>
 </p>
 <p>
