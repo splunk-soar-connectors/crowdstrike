@@ -11,7 +11,6 @@
     of Phantom Cyber.
 -->
 
-<p>This App is an Ingestion source. In the Phantom documentation, in the <a href="../admin/">Administration Manual</a> under the <a href="../admin/sources">Data Sources</a> section, you will find an explanation of how Ingest Apps works and how information is extracted from the ingested data. There is a general explanation in Overview, and some individuals Apps have their own sections.</p>
 <p>During POLL NOW, the app starts from the 1st event that it can query up to "Maximum events" configured.</p>
 <p>During scheduled polls, the app starts from the 1st event that it can query up to "Maximum events" configured, but then remembers the last event that it queried for. In the next scheduled poll, it will start from the last event.</p>
 <p>
@@ -72,10 +71,10 @@ The App also parses the following <b>sub events</b> into their own Artifacts
   <li>Quarantine Files</li>
   <li>Dns Requests</li>
 </ul>
-Each of the sub event artifacts created have a cef key called <b>parentSdi</b> that stands for Parent Source Data Identifier. This value points to the SDI of the main event that the sub events were generated from.
+Each of the sub events have a cef key called <b>parentSdi</b> that stands for Parent Source Data Identifier. This is the value of the SDI of the main event that the sub events were generated from.
 </p>
 <h2 id="appid">App ID</h2>
 <p>
-Optionally, you can specify an <b>App ID</b> to be used with the Streaming API. If one isn't set, it will default to this app's UUID.<br>
+Optionally, you can specify an <b>App ID</b> to be used with the Streaming API. If one isn't set, it will default to the asset id.<br>
 It is recommended to have a unique <b>App ID</b> for each connection to the Streaming API. That is to say, if you are planning on having multiple assets using the Streaming API at once, you should give them unique App IDs.
 </p>
