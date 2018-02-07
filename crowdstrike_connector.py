@@ -1,7 +1,7 @@
 # --
 # File: crowdstrike_connector.py
 #
-# Copyright (c) Phantom Cyber Corporation, 2014-2017
+# Copyright (c) Phantom Cyber Corporation, 2015-2018
 #
 # This unpublished material is proprietary to Phantom Cyber.
 # All rights reserved. The methods and
@@ -150,11 +150,11 @@ class CrowdstrikeConnector(BaseConnector):
 
         return (phantom.APP_SUCCESS, event)
 
-    def _check_for_existing_container(self, container, time_interval):
-        if (not time_interval):
+    def _check_for_existing_container(self, container, time_interval, collate):
+        if (not time_interval) or (not collate):
             return phantom.APP_ERROR, None
 
-        gt_date = datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%SZ') - timedelta(seconds=time_interval)
+        gt_date = datetime.utcnow() - timedelta(seconds=int(time_interval))
         # Cutoff Timestamp From String
         common_str = ' '.join(container['name'].split()[:-1])
         request_str = CROWDSTRIKE_FILTER_REQUEST_STR.format(self.get_asset_id(), common_str, gt_date.strftime('%Y-%m-%dT%H:%M:%SZ'))
@@ -190,32 +190,43 @@ class CrowdstrikeConnector(BaseConnector):
 
         artifact_count = int(param.get(phantom.APP_JSON_ARTIFACT_COUNT, CROWDSTRIKE_DEFAULT_ARTIFACT_COUNT))
 
+        reused_containers = 0
+
         containers_processed = 0
         for i, result in enumerate(results):
 
+            self.send_progress("Adding Container # {0}".format(i))
             # result is a dictionary of a single container and artifacts
             if ('container' not in result):
+                self.debug_print("Skipping empty container # {0}".format(i))
                 continue
 
             if ('artifacts' not in result):
-                # igonore containers without artifacts
+                # ignore containers without artifacts
+                self.debug_print("Skipping container # {0} without artifacts".format(i))
                 continue
 
             if (len(result['artifacts']) == 0):
-                # igonore containers without artifacts
+                # ignore containers without artifacts
+                self.debug_print("Skipping container # {0} with 0 artifacts".format(i))
                 continue
 
             containers_processed += 1
 
             config = self.get_config()
-            time_interval = config.get('time_interval', 0)
+            time_interval = config.get('merge_time_interval', 0)
 
-            ret_val, container_id = self._check_for_existing_container(result['container'], time_interval)
+            ret_val, container_id = self._check_for_existing_container(
+                result['container'], time_interval, config.get('collate')
+            )
 
             if (not container_id):
-                self.send_progress("Adding Container # {0}".format(i))
+                # Do not collate this container
                 ret_val, response, container_id = self.save_container(result['container'])
                 self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
+            else:
+                self.debug_print("Reusing container with id: {0}".format(container_id))
+                reused_containers += 1
 
             if (phantom.is_fail(ret_val)):
                 continue
@@ -231,7 +242,6 @@ class CrowdstrikeConnector(BaseConnector):
 
             # get the length of the artifact, we might have trimmed it or not
             len_artifacts = len(artifacts)
-
             for j, artifact in enumerate(artifacts):
 
                 # if it is the last artifact of the last container
@@ -240,9 +250,12 @@ class CrowdstrikeConnector(BaseConnector):
                     artifact['run_automation'] = True
 
                 artifact['container_id'] = container_id
-                self.send_progress("Adding Container # {0}, Artifact # {1}".format(i, j))
-                ret_val, status_string, artifact_id = self.save_artifact(artifact)
-                self.debug_print("save_artifact returns, value: {0}, reason: {1}, id: {2}".format(ret_val, status_string, artifact_id))
+
+            ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
+            self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+
+        if (reused_containers and config.get('collate')):
+            self.save_progress("Some containers were re-used due to collate set to True")
 
         return containers_processed
 
@@ -404,23 +417,64 @@ class CrowdstrikeConnector(BaseConnector):
 
 if __name__ == '__main__':
 
-    import sys
-    # import simplejson as json
-
     import pudb
+    import argparse
+
     pudb.set_trace()
 
-    if (len(sys.argv) < 2):
-        print "No test json specified as input"
-        exit(0)
+    argparser = argparse.ArgumentParser()
 
-    with open(sys.argv[1]) as f:
+    argparser.add_argument('input_test_json', help='Input Test JSON file')
+    argparser.add_argument('-u', '--username', help='username', required=False)
+    argparser.add_argument('-p', '--password', help='password', required=False)
+
+    args = argparser.parse_args()
+    session_id = None
+
+    username = args.username
+    password = args.password
+
+    if (username is not None and password is None):
+
+        # User specified a username but not a password, so ask
+        import getpass
+        password = getpass.getpass("Password: ")
+
+    if (username and password):
+        try:
+            print ("Accessing the Login page")
+            r = requests.get("https://127.0.0.1/login", verify=False)
+            csrftoken = r.cookies['csrftoken']
+
+            data = dict()
+            data['username'] = username
+            data['password'] = password
+            data['csrfmiddlewaretoken'] = csrftoken
+
+            headers = dict()
+            headers['Cookie'] = 'csrftoken=' + csrftoken
+            headers['Referer'] = 'https://127.0.0.1/login'
+
+            print ("Logging into Platform to get the session id")
+            r2 = requests.post("https://127.0.0.1/login", verify=False, data=data, headers=headers)
+            session_id = r2.cookies['sessionid']
+        except Exception as e:
+            print ("Unable to get session id from the platfrom. Error: " + str(e))
+            exit(1)
+
+    with open(args.input_test_json) as f:
         in_json = f.read()
         in_json = json.loads(in_json)
-        print(json.dumps(in_json, indent=' ' * 4))
+        print(json.dumps(in_json, indent=4))
 
         connector = CrowdstrikeConnector()
         connector.print_progress_message = True
-        connector._handle_action(json.dumps(in_json), None)
+
+        if (session_id is not None):
+            in_json['user_session_token'] = session_id
+            connector._set_csrf_info(csrftoken, headers['Referer'])
+
+        ret_val = connector._handle_action(json.dumps(in_json), None)
+        print (json.dumps(json.loads(ret_val), indent=4))
 
     exit(0)
