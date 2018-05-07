@@ -192,7 +192,12 @@ def _set_cef_types(artifact, cef):
         for contains, function in ph_utils.CONTAINS_VALIDATORS.iteritems():
             if (contains in IGNORE_CONTAINS_VALIDATORS):
                 continue
-            if (function(str(v))):
+            try:
+                v_str = str(v)
+            except UnicodeEncodeError:
+                # None of these contains should match if there is a unicode characters in it
+                continue
+            if (function(v_str)):
                 cef_types[k] = [contains]
                 # it's ok to add only one contains
                 break
