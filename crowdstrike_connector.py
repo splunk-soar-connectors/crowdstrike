@@ -176,11 +176,17 @@ class CrowdstrikeConnector(BaseConnector):
         if count:
             try:
                 most_recent = gt_date
-                most_recent_id = resp_json['data'][0]['id']
+                most_recent_id = None
                 for container in resp_json['data']:
-                    if most_recent <= datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ'):
+                    if container.get('parent_container'):
+                        # container created through aggregation, skip this
+                        continue
+                    cur_start_time = datetime.strftime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                    if most_recent <= cur_start_time:
                         most_recent_id = container['id']
-                return phantom.APP_SUCCESS, most_recent_id
+                        most_recent = cur_start_time
+                if most_recent_id is not None:
+                    return phantom.APP_SUCCESS, most_recent_id
             except Exception as e:
                 self.debug_print("Caught Exception in parsing containers: {0}".format(str(e)))
                 return phantom.APP_ERROR, None
