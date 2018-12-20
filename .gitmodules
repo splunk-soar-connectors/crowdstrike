@@ -1,4 +1,4 @@
 [submodule "cs"]
 	path = cs
-	url = ssh://git@bitbucket.phantom.us:7999/PER/crowdstrike.git
+	url = git@cd.splunkdev.com:phantom-external/crowdstrike.git
 	ignore = dirty
