@@ -1,16 +1,8 @@
-# --
 # File: crowdstrike_connector.py
+# Copyright (c) 2015-2019 Splunk Inc.
 #
-# Copyright (c) Phantom Cyber Corporation, 2015-2018
-#
-# This unpublished material is proprietary to Phantom Cyber.
-# All rights reserved. The methods and
-# techniques described herein are considered trade secrets
-# and/or confidential. Reproduction or distribution, in whole
-# or in part, is forbidden except by express written permission
-# of Phantom Cyber.
-#
-# --
+# SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
+# without a valid written license from Splunk Inc. is PROHIBITED.
 
 # Phantom imports
 import phantom.app as phantom
@@ -28,6 +20,7 @@ import time
 import parse_cs_events as events_parser
 import simplejson as json
 import cs.hmac.client as client
+import imp
 
 
 class CrowdstrikeConnector(BaseConnector):
@@ -74,10 +67,37 @@ class CrowdstrikeConnector(BaseConnector):
 
         self._state = self.load_state()
 
+        ret = self._handle_preprocess_scripts()
+        if phantom.is_fail(ret):
+            return ret
+
         return phantom.APP_SUCCESS
 
     def finalize(self):
         self.save_state(self._state)
+        return phantom.APP_SUCCESS
+
+    def _handle_preprocess_scripts(self):
+
+        config = self.get_config()
+        script = config.get('preprocess_script')
+
+        self._preprocess_container = lambda x: x
+
+        if script:
+            try:  # Try to laod in script to preprocess artifacts
+                self._script_module = imp.new_module('preprocess_methods')
+                exec script in self._script_module.__dict__
+            except Exception as e:
+                self.save_progress("Error loading custom script. Error: {}".format(str(e)))
+                return phantom.APP_ERROR
+
+            try:
+                self._preprocess_container = self._script_module.preprocess_container
+            except:
+                self.save_progress("Error loading custom script. Does not contain preprocess_container function")
+                return phantom.APP_ERROR
+
         return phantom.APP_SUCCESS
 
     def _get_stream(self):
@@ -217,28 +237,12 @@ class CrowdstrikeConnector(BaseConnector):
                 self.debug_print("Skipping container # {0} with 0 artifacts".format(i))
                 continue
 
-            containers_processed += 1
-
             config = self.get_config()
             time_interval = config.get('merge_time_interval', 0)
 
             ret_val, container_id = self._check_for_existing_container(
                 result['container'], time_interval, config.get('collate')
             )
-
-            if (not container_id):
-                # Do not collate this container
-                ret_val, response, container_id = self.save_container(result['container'])
-                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
-            else:
-                self.debug_print("Reusing container with id: {0}".format(container_id))
-                reused_containers += 1
-
-            if (phantom.is_fail(ret_val)):
-                continue
-
-            if (not container_id):
-                continue
 
             if ('artifacts' not in result):
                 continue
@@ -256,9 +260,29 @@ class CrowdstrikeConnector(BaseConnector):
                     artifact['run_automation'] = True
 
                 artifact['container_id'] = container_id
-
-            ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
-            self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+            
+            if container_id:
+                ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
+                self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+                self.debug_print("Reusing container with id: {0}".format(container_id))
+                reused_containers += 1
+            else:
+                container = result['container']
+                container['artifacts'] = artifacts
+                
+                if (hasattr(self, '_preprocess_container')):
+                    try:
+                        container = self._preprocess_container(container)
+                    except Exception as e:
+                        self.debug_print('Preprocess error: ' + e.message)
+                
+                ret_val, response, container_id = self.save_container(result['container'])
+                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
+        
+                if (phantom.is_fail(ret_val)):
+                    continue
+            
+            containers_processed += 1
 
         if (reused_containers and config.get('collate')):
             self.save_progress("Some containers were re-used due to collate set to True")
@@ -484,3 +508,4 @@ if __name__ == '__main__':
         print (json.dumps(json.loads(ret_val), indent=4))
 
     exit(0)
+    

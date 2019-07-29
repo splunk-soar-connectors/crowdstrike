@@ -1,20 +1,13 @@
 #!/usr/bin/env python2.7
-# --
-# File: ./crowdstrike/parse_cs_events.py
+# File: parse_cs_events.py
+# Copyright (c) 2015-2019 Splunk Inc.
 #
-# Copyright (c) Phantom Cyber Corporation, 2015-2018
-#
-# This unpublished material is proprietary to Phantom Cyber.
-# All rights reserved. The methods and
-# techniques described herein are considered trade secrets
-# and/or confidential. Reproduction or distribution, in whole
-# or in part, is forbidden except by express written permission
-# of Phantom Cyber.
-#
-# --
+# SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
+# without a valid written license from Splunk Inc. is PROHIBITED.
 
 from datetime import datetime
 from phantom import utils as ph_utils
+from bs4 import UnicodeDammit
 
 import hashlib
 import json
@@ -137,7 +130,7 @@ def _collate_results(detection_events):
             container = dict()
             ingest_event['container'] = container
             container.update(_container_common)
-            container['name'] = "{0} {1}".format(detection_name, '' if (not machine_name) else 'on {0}'.format(machine_name))
+            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), '' if (not machine_name) else 'on {0}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8')))
 
             # now the artifacts
             ingest_event['artifacts'] = artifacts = []
