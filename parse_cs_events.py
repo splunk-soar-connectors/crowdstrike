@@ -130,7 +130,8 @@ def _collate_results(detection_events):
             container = dict()
             ingest_event['container'] = container
             container.update(_container_common)
-            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), '' if (not machine_name) else 'on {0}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8')))
+            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), '' if (not machine_name)
+                else 'on {0}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8')))
 
             # now the artifacts
             ingest_event['artifacts'] = artifacts = []

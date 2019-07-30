@@ -18,7 +18,7 @@ from datetime import datetime
 from datetime import timedelta
 import time
 import parse_cs_events as events_parser
-import simplejson as json
+import json
 import cs.hmac.client as client
 import imp
 
@@ -260,7 +260,7 @@ class CrowdstrikeConnector(BaseConnector):
                     artifact['run_automation'] = True
 
                 artifact['container_id'] = container_id
-            
+
             if container_id:
                 ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
                 self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
@@ -269,19 +269,19 @@ class CrowdstrikeConnector(BaseConnector):
             else:
                 container = result['container']
                 container['artifacts'] = artifacts
-                
+
                 if (hasattr(self, '_preprocess_container')):
                     try:
                         container = self._preprocess_container(container)
                     except Exception as e:
                         self.debug_print('Preprocess error: ' + e.message)
-                
+
                 ret_val, response, container_id = self.save_container(result['container'])
                 self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
-        
+
                 if (phantom.is_fail(ret_val)):
                     continue
-            
+
             containers_processed += 1
 
         if (reused_containers and config.get('collate')):
@@ -508,4 +508,3 @@ if __name__ == '__main__':
         print (json.dumps(json.loads(ret_val), indent=4))
 
     exit(0)
-    
