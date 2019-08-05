@@ -312,10 +312,6 @@ class CrowdstrikeConnector(BaseConnector):
         if (headers):
             kwargs['headers'] = headers
 
-        config = self.get_config()
-
-        kwargs['verify'] = config[phantom.APP_JSON_VERIFY]
-
         url = "{0}{1}".format(self._base_url, endpoint)
 
         try:
