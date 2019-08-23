@@ -1,6 +1,5 @@
-#!/usr/bin/env python2.7
 # File: parse_cs_events.py
-# Copyright (c) 2015-2019 Splunk Inc.
+# Copyright (c) 2016-2019 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
