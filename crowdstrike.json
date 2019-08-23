@@ -55,7 +55,7 @@
         "max_events": {
             "data_type": "numeric",
             "order": 5,
-            "description": "Maximum events to get while polling",
+            "description": "Maximum events to get while scheduled and interval polling",
             "default": "10000",
             "required": false
         },
@@ -101,28 +101,26 @@
         {
             "action": "on poll",
             "description": "Callback action for the on_poll ingest functionality",
-            "verbose": "This action remembers the last event id that was queried for. The next ingestion carried out will query for later events ids. This way the same events are not queried for in every run. However in case of 'POLL NOW' queried event ids will not be remembered.",
+            "verbose": "This action remembers the last event id that was queried for. The next ingestion carried out will query for later event IDs. This way the same events are not queried for in every run. However, in case of 'POLL NOW' queried event IDs will not be remembered.",
             "type": "ingest",
             "identifier": "on_poll",
             "read_only": true,
             "parameters": {
                 "start_time": {
                     "data_type": "numeric",
-                    "description": "Start of time range, in epoch time (milliseconds)",
-                    "verbose": "If not specified, the default is past 10 days"
+                    "description": "Parameter ignored in this app"
                 },
                 "end_time": {
                     "data_type": "numeric",
-                    "description": "End of time range, in epoch time (milliseconds)",
-                    "verbose": "If not specified, the default is now"
+                    "description": "Parameter ignored in this app"
                 },
                 "container_count": {
                     "data_type": "numeric",
-                    "description": "Maximum number of container records to query for."
+                    "description": "Parameter ignored in this app"
                 },
                 "artifact_count": {
                     "data_type": "numeric",
-                    "description": "Maximum number of artifact records to query for."
+                    "description": "Parameter ignored in this app"
                 }
             },
             "output": [],
