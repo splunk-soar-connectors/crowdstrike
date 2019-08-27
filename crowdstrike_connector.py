@@ -64,7 +64,7 @@ class CrowdstrikeConnector(BaseConnector):
             return self.set_status(phantom.APP_ERROR, 'Invalid access key')
 
         # create the Auth
-        self._auth = client.Auth(uuid=str(config[CROWDSTRIKE_JSON_UUID]), api_key=str(config[CROWDSTRIKE_JSON_API_KEY]), access=str(access_key))
+        self._auth = client.Auth(uuid=str(config[CROWDSTRIKE_JSON_UUID].encode('utf-8')), api_key=str(config[CROWDSTRIKE_JSON_API_KEY]), access=str(access_key))
 
         # set the params, use the asset id as the appId that is passed Crowdstrike
         app_id = config.get('app_id', self.get_asset_id().replace('-', ''))
@@ -224,7 +224,7 @@ class CrowdstrikeConnector(BaseConnector):
         containers_processed = 0
         for i, result in enumerate(results):
 
-            self.send_progress("Adding Container # {0}".format(i))
+            self.send_progress("Adding event artifact # {0}".format(i))
             # result is a dictionary of a single container and artifacts
             if ('container' not in result):
                 self.debug_print("Skipping empty container # {0}".format(i))
@@ -432,9 +432,9 @@ class CrowdstrikeConnector(BaseConnector):
         if (len(self._events) > 0):
             self.send_progress("Parsing them...")
             results = events_parser.parse_events(self._events, self, collate)
-            self.save_progress("Created {0} relevant containers from events".format(len(results)))
+            self.save_progress("Created {0} relevant results from events".format(len(results)))
             if (results):
-                self.save_progress("Adding {0} Container{1}. Empty containers will be skipped.".format(len(results), 's' if len(results) > 1 else ''))
+                self.save_progress("Adding {0} event artifact{1}. Empty containers will be skipped.".format(len(results), 's' if len(results) > 1 else ''))
                 self._save_results(results, param)
                 self.send_progress("Done")
             if (not self.is_poll_now()):
