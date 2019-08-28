@@ -346,7 +346,7 @@ def parse_events(events, base_connector, collate):
         base_connector.save_progress("Did not match any events of type: DetectionSummaryEvent")
         return results
 
-    base_connector.save_progress("Got {0}".format(len(detection_events)))
+    base_connector.save_progress("Got {0} events of type DetectionSummaryEvent".format(len(detection_events)))
 
     if (collate):
         return _collate_results(detection_events)
