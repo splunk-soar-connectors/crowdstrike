@@ -384,7 +384,8 @@ def parse_events(events, base_connector, collate):
         container = dict()
         ingest_event['container'] = container
         container.update(_container_common)
-        container['name'] = "{0} on {1} at {2}".format(detection_name, hostname, creation_time)
+        container['name'] = "{0} on {1} at {2}".format(
+                                UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), UnicodeDammit(hostname).unicode_markup.encode('utf-8'), creation_time)
         container['severity'] = _severity_map.get(str(event_details.get('Severity', 3)), 'medium')
 
         # now the artifacts, will just be one
