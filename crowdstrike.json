@@ -55,7 +55,7 @@
         "max_events": {
             "data_type": "numeric",
             "order": 5,
-            "description": "Maximum events to get while scheduled and interval polling",
+            "description": "Maximum events to get for scheduled and interval polling",
             "default": "10000",
             "required": false
         },
