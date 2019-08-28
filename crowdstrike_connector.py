@@ -176,9 +176,8 @@ class CrowdstrikeConnector(BaseConnector):
         return (phantom.APP_SUCCESS, event)
 
     def _check_for_existing_container(self, container, time_interval, collate):
-        # if (not time_interval) or (not collate):
-        #     return phantom.APP_ERROR, None
-
+        # Even if the collate parameter is selected, the time mentioned in the merge_time_interval
+        # config parameter will be considered for the creation of the new container for a given category of DetectionSummaryEvent
         gt_date = datetime.utcnow() - timedelta(seconds=int(time_interval))
         # Cutoff Timestamp From String
         common_str = ' '.join(container['name'].split()[:-1])

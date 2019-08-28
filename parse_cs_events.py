@@ -10,6 +10,7 @@ from bs4 import UnicodeDammit
 
 import hashlib
 import json
+import time
 
 _container_common = {
     "description": "Container added by Phantom",
@@ -125,12 +126,25 @@ def _collate_results(detection_events):
             ingest_event = dict()
             results.append(ingest_event)
 
+            # This logic is required because _check_for_existing_container() method in connector checks on the basis of
+            # name of the container created by trimming the last time attached in the container's name. Hence, if we do not
+            # append the creation time over here, the ComputerName gets falsely truncated instead of the time and the events
+            # start getting mixed up in the different ComputerName container falling in the time interval specified in the
+            # merge_time_interval configuration parameter.
+            creation_time = int(time.time() * 1000)
+
+            if per_detection_machine_events:
+                creation_time = per_detection_machine_events[0].get('metadata', {}).get('eventCreationTime', creation_time)
+
+            if creation_time:
+                creation_time = _get_str_from_epoch(creation_time)
+
             # Create the container
             container = dict()
             ingest_event['container'] = container
             container.update(_container_common)
-            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), '' if (not machine_name)
-                else 'on {0}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8')))
+            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), 'at {0}'.format(creation_time) if (not machine_name)
+                else 'on {0} at {1}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8'), creation_time))
 
             # now the artifacts
             ingest_event['artifacts'] = artifacts = []
