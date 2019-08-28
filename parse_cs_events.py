@@ -1,23 +1,16 @@
-#!/usr/bin/env python2.7
-# --
-# File: ./crowdstrike/parse_cs_events.py
+# File: parse_cs_events.py
+# Copyright (c) 2016-2019 Splunk Inc.
 #
-# Copyright (c) Phantom Cyber Corporation, 2015-2018
-#
-# This unpublished material is proprietary to Phantom Cyber.
-# All rights reserved. The methods and
-# techniques described herein are considered trade secrets
-# and/or confidential. Reproduction or distribution, in whole
-# or in part, is forbidden except by express written permission
-# of Phantom Cyber.
-#
-# --
+# SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
+# without a valid written license from Splunk Inc. is PROHIBITED.
 
 from datetime import datetime
 from phantom import utils as ph_utils
+from bs4 import UnicodeDammit
 
 import hashlib
 import json
+import time
 
 _container_common = {
     "description": "Container added by Phantom",
@@ -133,11 +126,25 @@ def _collate_results(detection_events):
             ingest_event = dict()
             results.append(ingest_event)
 
+            # This logic is required because _check_for_existing_container() method in connector checks on the basis of
+            # name of the container created by trimming the last time attached in the container's name. Hence, if we do not
+            # append the creation time over here, the ComputerName gets falsely truncated instead of the time and the events
+            # start getting mixed up in the different ComputerName container falling in the time interval specified in the
+            # merge_time_interval configuration parameter.
+            creation_time = int(time.time() * 1000)
+
+            if per_detection_machine_events:
+                creation_time = per_detection_machine_events[0].get('metadata', {}).get('eventCreationTime', creation_time)
+
+            if creation_time:
+                creation_time = _get_str_from_epoch(creation_time)
+
             # Create the container
             container = dict()
             ingest_event['container'] = container
             container.update(_container_common)
-            container['name'] = "{0} {1}".format(detection_name, '' if (not machine_name) else 'on {0}'.format(machine_name))
+            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), 'at {0}'.format(creation_time) if (not machine_name)
+                else 'on {0} at {1}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8'), creation_time))
 
             # now the artifacts
             ingest_event['artifacts'] = artifacts = []
@@ -353,7 +360,7 @@ def parse_events(events, base_connector, collate):
         base_connector.save_progress("Did not match any events of type: DetectionSummaryEvent")
         return results
 
-    base_connector.save_progress("Got {0}".format(len(detection_events)))
+    base_connector.save_progress("Got {0} events of type DetectionSummaryEvent".format(len(detection_events)))
 
     if (collate):
         return _collate_results(detection_events)
@@ -377,7 +384,8 @@ def parse_events(events, base_connector, collate):
         container = dict()
         ingest_event['container'] = container
         container.update(_container_common)
-        container['name'] = "{0} on {1} at {2}".format(detection_name, hostname, creation_time)
+        container['name'] = "{0} on {1} at {2}".format(
+                                UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), UnicodeDammit(hostname).unicode_markup.encode('utf-8'), creation_time)
         container['severity'] = _severity_map.get(str(event_details.get('Severity', 3)), 'medium')
 
         # now the artifacts, will just be one

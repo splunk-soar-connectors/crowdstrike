@@ -1,16 +1,8 @@
-# --
 # File: crowdstrike_connector.py
+# Copyright (c) 2016-2019 Splunk Inc.
 #
-# Copyright (c) Phantom Cyber Corporation, 2015-2018
-#
-# This unpublished material is proprietary to Phantom Cyber.
-# All rights reserved. The methods and
-# techniques described herein are considered trade secrets
-# and/or confidential. Reproduction or distribution, in whole
-# or in part, is forbidden except by express written permission
-# of Phantom Cyber.
-#
-# --
+# SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
+# without a valid written license from Splunk Inc. is PROHIBITED.
 
 # Phantom imports
 import phantom.app as phantom
@@ -26,8 +18,9 @@ from datetime import datetime
 from datetime import timedelta
 import time
 import parse_cs_events as events_parser
-import simplejson as json
+import json
 import cs.hmac.client as client
+import imp
 
 
 class CrowdstrikeConnector(BaseConnector):
@@ -54,11 +47,16 @@ class CrowdstrikeConnector(BaseConnector):
 
         config = self.get_config()
 
-        # Base URL
-        self._base_url = config[CROWDSTRIKE_JSON_URL]
+        try:
+            # Base URL
+            self._base_url = config[CROWDSTRIKE_JSON_URL]
 
-        if (self._base_url[-1] == '/'):
-            self._base_url = self._base_url[:-1]
+            if (self._base_url[-1] == '/'):
+                self._base_url = self._base_url[:-1]
+
+            self._base_url = self._base_url.encode('utf-8')
+        except Exception as e:
+            return self.set_status(phantom.APP_ERROR, 'Error occurred while processing the base_url provided in the asset configuration parameters. Error: {0}'.format(str(e)))
 
         access_key = self.ACCESS_KEYS.get(config[CROWDSTRIKE_JSON_ACCESS])
 
@@ -66,7 +64,7 @@ class CrowdstrikeConnector(BaseConnector):
             return self.set_status(phantom.APP_ERROR, 'Invalid access key')
 
         # create the Auth
-        self._auth = client.Auth(uuid=str(config[CROWDSTRIKE_JSON_UUID]), api_key=str(config[CROWDSTRIKE_JSON_API_KEY]), access=str(access_key))
+        self._auth = client.Auth(uuid=str(config[CROWDSTRIKE_JSON_UUID].encode('utf-8')), api_key=str(config[CROWDSTRIKE_JSON_API_KEY]), access=str(access_key))
 
         # set the params, use the asset id as the appId that is passed Crowdstrike
         app_id = config.get('app_id', self.get_asset_id().replace('-', ''))
@@ -74,10 +72,37 @@ class CrowdstrikeConnector(BaseConnector):
 
         self._state = self.load_state()
 
+        ret = self._handle_preprocess_scripts()
+        if phantom.is_fail(ret):
+            return ret
+
         return phantom.APP_SUCCESS
 
     def finalize(self):
         self.save_state(self._state)
+        return phantom.APP_SUCCESS
+
+    def _handle_preprocess_scripts(self):
+
+        config = self.get_config()
+        script = config.get('preprocess_script')
+
+        self._preprocess_container = lambda x: x
+
+        if script:
+            try:  # Try to laod in script to preprocess artifacts
+                self._script_module = imp.new_module('preprocess_methods')
+                exec script in self._script_module.__dict__
+            except Exception as e:
+                self.save_progress("Error loading custom script. Error: {}".format(str(e)))
+                return phantom.APP_ERROR
+
+            try:
+                self._preprocess_container = self._script_module.preprocess_container
+            except:
+                self.save_progress("Error loading custom script. Does not contain preprocess_container function")
+                return phantom.APP_ERROR
+
         return phantom.APP_SUCCESS
 
     def _get_stream(self):
@@ -151,9 +176,8 @@ class CrowdstrikeConnector(BaseConnector):
         return (phantom.APP_SUCCESS, event)
 
     def _check_for_existing_container(self, container, time_interval, collate):
-        if (not time_interval) or (not collate):
-            return phantom.APP_ERROR, None
-
+        # Even if the collate parameter is selected, the time mentioned in the merge_time_interval
+        # config parameter will be considered for the creation of the new container for a given category of DetectionSummaryEvent
         gt_date = datetime.utcnow() - timedelta(seconds=int(time_interval))
         # Cutoff Timestamp From String
         common_str = ' '.join(container['name'].split()[:-1])
@@ -181,7 +205,7 @@ class CrowdstrikeConnector(BaseConnector):
                     if container.get('parent_container'):
                         # container created through aggregation, skip this
                         continue
-                    cur_start_time = datetime.strftime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                    cur_start_time = datetime.strptime(container['start_time'], '%Y-%m-%dT%H:%M:%S.%fZ')
                     if most_recent <= cur_start_time:
                         most_recent_id = container['id']
                         most_recent = cur_start_time
@@ -194,14 +218,12 @@ class CrowdstrikeConnector(BaseConnector):
 
     def _save_results(self, results, param):
 
-        artifact_count = int(param.get(phantom.APP_JSON_ARTIFACT_COUNT, CROWDSTRIKE_DEFAULT_ARTIFACT_COUNT))
-
         reused_containers = 0
 
         containers_processed = 0
         for i, result in enumerate(results):
 
-            self.send_progress("Adding Container # {0}".format(i))
+            self.send_progress("Adding event artifact # {0}".format(i))
             # result is a dictionary of a single container and artifacts
             if ('container' not in result):
                 self.debug_print("Skipping empty container # {0}".format(i))
@@ -217,8 +239,6 @@ class CrowdstrikeConnector(BaseConnector):
                 self.debug_print("Skipping container # {0} with 0 artifacts".format(i))
                 continue
 
-            containers_processed += 1
-
             config = self.get_config()
             time_interval = config.get('merge_time_interval', 0)
 
@@ -226,25 +246,10 @@ class CrowdstrikeConnector(BaseConnector):
                 result['container'], time_interval, config.get('collate')
             )
 
-            if (not container_id):
-                # Do not collate this container
-                ret_val, response, container_id = self.save_container(result['container'])
-                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
-            else:
-                self.debug_print("Reusing container with id: {0}".format(container_id))
-                reused_containers += 1
-
-            if (phantom.is_fail(ret_val)):
-                continue
-
-            if (not container_id):
-                continue
-
             if ('artifacts' not in result):
                 continue
 
             artifacts = result['artifacts']
-            artifacts = artifacts[:artifact_count]
 
             # get the length of the artifact, we might have trimmed it or not
             len_artifacts = len(artifacts)
@@ -257,8 +262,28 @@ class CrowdstrikeConnector(BaseConnector):
 
                 artifact['container_id'] = container_id
 
-            ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
-            self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+            if container_id:
+                ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
+                self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+                self.debug_print("Reusing container with id: {0}".format(container_id))
+                reused_containers += 1
+            else:
+                container = result['container']
+                container['artifacts'] = artifacts
+
+                if (hasattr(self, '_preprocess_container')):
+                    try:
+                        container = self._preprocess_container(container)
+                    except Exception as e:
+                        self.debug_print('Preprocess error: ' + e.message)
+
+                ret_val, response, container_id = self.save_container(result['container'])
+                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
+
+                if (phantom.is_fail(ret_val)):
+                    continue
+
+            containers_processed += 1
 
         if (reused_containers and config.get('collate')):
             self.save_progress("Some containers were re-used due to collate set to True")
@@ -287,10 +312,6 @@ class CrowdstrikeConnector(BaseConnector):
         # The client object cribs if header is specified as None
         if (headers):
             kwargs['headers'] = headers
-
-        config = self.get_config()
-
-        kwargs['verify'] = config[phantom.APP_JSON_VERIFY]
 
         url = "{0}{1}".format(self._base_url, endpoint)
 
@@ -325,30 +346,44 @@ class CrowdstrikeConnector(BaseConnector):
         if (self._data_feed_url is None):
             return self.set_status(phantom.APP_SUCCESS, CROWDSTRIKE_NO_MORE_FEEDS_AVAILABLE)
 
-        max_container_count = int(param.get(phantom.APP_JSON_CONTAINER_COUNT, CROWDSTRIKE_DEFAULT_CONTAINER_COUNT))
-
         config = self.get_config()
-
-        max_events = int(config.get('max_events', 10000))
-
-        lower_id = 0
 
         if (self.is_poll_now()):
-            max_events = int(config.get('max_events_poll_now', 2000))
+            # Manual Poll Now
+            try:
+                max_events = int(config.get('max_events_poll_now', DEFAULT_POLLNOW_EVENTS_COUNT))
+            except:
+                max_events = DEFAULT_POLLNOW_EVENTS_COUNT
+        else:
+            # Scheduled and Interval Polling
+            try:
+                max_events = int(config.get('max_events', DEFAULT_EVENTS_COUNT))
+            except:
+                max_events = DEFAULT_EVENTS_COUNT
 
+        if max_events <= 0:
+            return self.set_status(phantom.APP_ERROR, 'Please provide non-zero positive integer in the "max_events" configuration parameter')
+
+        lower_id = 0
         if (not self.is_poll_now()):
-            # we only manger the ids in case of on_poll on the interval, on POLL NOW always start on 0
+            # we only mange the ids in case of on_poll on the interval
+            # For POLL NOW always start on 0
             # lower_id = int(self._get_lower_id())
-            lower_id = self._state.get('last_offset_id', 0)
+            try:
+                lower_id = int(self._state.get('last_offset_id', 0))
+            except:
+                lower_id = 0
+
+        # In case of invalid lower_id, set the lower_id offset to the starting point 0
+        if lower_id < 0:
+            lower_id = 0
 
         self.save_progress(CROWDSTRIKE_MSG_GETTING_EVENTS.format(lower_id=lower_id, max_events=max_events))
-
-        config = self.get_config()
 
         # Query for the events
         try:
             r = requests.get(self._data_feed_url + '&offset={0}'.format(lower_id), headers={'Authorization': 'Token {0}'.format(self._token)},
-                    stream=True, verify=config[phantom.APP_JSON_VERIFY])
+                    stream=True)
         except Exception as e:
             return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, e)
 
@@ -368,7 +403,9 @@ class CrowdstrikeConnector(BaseConnector):
                 # Done with all the event data for now
                 break
             resp_data += chunk
+
             ret_val, resp_data = self._parse_resp_data(resp_data)
+
             if (phantom.is_fail(ret_val)):
                 self.debug_print("Chunk: ", chunk)
                 return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_UNABLE_TO_PARSE_DATA)
@@ -376,24 +413,27 @@ class CrowdstrikeConnector(BaseConnector):
             # resp_data is a dict
             self._events.append(resp_data)
             len_events = len(self._events)
-            if (len_events >= max_events):
+
+            if max_events and len_events >= max_events:
+                self._events = self._events[:max_events]
                 break
+
             self.send_progress("Pulled {0} events".format(len_events))
             # convert it to string
             resp_data = ''
 
+        # Check if to collate the data or not
         collate = config.get('collate', True)
 
         self.send_progress(" ")
         self.debug_print("Got {0} Events".format(len(self._events)))
         self.save_progress("Got {0} Events".format(len(self._events)))
         if (len(self._events) > 0):
-            self.send_progress("Parsing them.")
+            self.send_progress("Parsing them...")
             results = events_parser.parse_events(self._events, self, collate)
-            self.save_progress("Created {0} relevant containers from events".format(len(results)))
+            self.save_progress("Created {0} relevant results from events".format(len(results)))
             if (results):
-                results = results[:max_container_count]
-                self.save_progress("Adding {0} Container{1}. Empty containers will be skipped.".format(len(results), 's' if len(results) > 1 else ''))
+                self.save_progress("Adding {0} event artifact{1}. Empty containers will be skipped.".format(len(results), 's' if len(results) > 1 else ''))
                 self._save_results(results, param)
                 self.send_progress("Done")
             if (not self.is_poll_now()):
