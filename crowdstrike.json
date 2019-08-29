@@ -1,51 +1,44 @@
 {
     "appid": "814d0ca3-12e2-4f04-b656-2d1d3ca91adf",
-    "name": "Streaming API",
+    "name": "Crowdstrike Streaming API",
     "description": "This app integrates with CrowdStrike security services to implement ingestion of endpoint security data",
-    "publisher": "Phantom",
+    "publisher": "Splunk",
     "type": "endpoint",
     "main_module": "crowdstrike_connector.pyc",
-    "app_version": "1.2.41",
-    "utctime_updated": "2019-01-19T21:55:21.000000Z",
+    "app_version": "1.2.43",
+    "utctime_updated": "2019-08-28T20:15:31.000000Z",
     "package_name": "phantom_crowdstrike",
     "product_vendor": "CrowdStrike",
     "product_name": "FalconHost",
     "product_version_regex": ".*",
-    "min_phantom_version": "3.0.251",
+    "min_phantom_version": "4.2.7532",
     "app_config_render": "default",
     "logo": "logo_crowdstrike.svg",
     "logo_dark": "logo_crowdstrike_dark.svg",
-    "license": "Copyright (c) Phantom Cyber Corporation, 2015-2018",
+    "license": "Copyright (c) 2016-2019 Splunk Inc.",
     "configuration": {
         "url": {
             "data_type": "string",
             "order": 0,
             "description": "Base URL",
             "required": true,
-            "default": "https://firehose.crowdstrike.com/"
-        },
-        "verify_server_cert": {
-            "data_type": "boolean",
-            "description": "Verify server certificate",
-            "required": true,
-            "order": 1,
-            "default": true
+            "default": "https://firehose.crowdstrike.com"
         },
         "uuid": {
             "data_type": "string",
-            "order": 2,
+            "order": 1,
             "description": "UUID",
             "required": true
         },
         "api_key": {
             "data_type": "password",
-            "order": 3,
+            "order": 2,
             "description": "API Key",
             "required": true
         },
         "access": {
             "data_type": "string",
-            "order": 4,
+            "order": 3,
             "description": "Access Type",
             "value_list": [
                 "customer",
@@ -55,37 +48,43 @@
         },
         "app_id": {
             "data_type": "string",
-            "order": 5,
+            "order": 4,
             "description": "App ID",
             "required": false
         },
         "max_events": {
             "data_type": "numeric",
-            "order": 6,
-            "description": "Maximum events to get while polling",
+            "order": 5,
+            "description": "Maximum events to get for scheduled and interval polling",
             "default": "10000",
             "required": false
         },
         "max_events_poll_now": {
             "data_type": "numeric",
-            "order": 7,
+            "order": 6,
             "description": "Maximum events to get while POLL NOW",
             "default": "2000",
             "required": false
         },
         "collate": {
             "data_type": "boolean",
-            "order": 8,
-            "description": "Merge containers for Hostname and Eventname",
+            "order": 7,
+            "description": "Merge containers for hostname and eventname",
             "default": true,
             "required": false
         },
         "merge_time_interval": {
             "data_type": "numeric",
-            "order": 9,
+            "order": 8,
             "description": "Merge same containers within specified seconds",
             "default": 0,
             "required": false
+        },
+        "preprocess_script": {
+            "data_type": "file",
+            "description": "Script with functions to preprocess containers and artifacts",
+            "required": false,
+            "order": 9
         }
     },
     "actions": [
@@ -102,28 +101,26 @@
         {
             "action": "on poll",
             "description": "Callback action for the on_poll ingest functionality",
-            "verbose": "This action remembers the last event id that was queried for. The next ingestion carried out will query for later events ids. This way the same events are not queried for in every run. However in case of 'POLL NOW' queried event ids will not be remembered.",
+            "verbose": "This action remembers the last event ID that was queried for. The next ingestion carried out will query for later event IDs. This way the same events are not queried for in every run. However, in case of 'POLL NOW' queried event IDs will not be remembered.",
             "type": "ingest",
             "identifier": "on_poll",
             "read_only": true,
             "parameters": {
                 "start_time": {
                     "data_type": "numeric",
-                    "description": "Start of time range, in epoch time (milliseconds)",
-                    "verbose": "If not specified, the default is past 10 days"
+                    "description": "Parameter ignored in this app"
                 },
                 "end_time": {
                     "data_type": "numeric",
-                    "description": "End of time range, in epoch time (milliseconds)",
-                    "verbose": "If not specified, the default is now"
+                    "description": "Parameter ignored in this app"
                 },
                 "container_count": {
                     "data_type": "numeric",
-                    "description": "Maximum number of container records to query for."
+                    "description": "Parameter ignored in this app"
                 },
                 "artifact_count": {
                     "data_type": "numeric",
-                    "description": "Maximum number of artifact records to query for."
+                    "description": "Parameter ignored in this app"
                 }
             },
             "output": [],
