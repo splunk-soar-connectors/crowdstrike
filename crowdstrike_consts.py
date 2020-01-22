@@ -1,5 +1,5 @@
 # File: crowdstrike_consts.py
-# Copyright (c) 2016-2019 Splunk Inc.
+# Copyright (c) 2016-2020 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
@@ -27,7 +27,7 @@ CROWDSTRIKE_ERR_RESOURCES_KEY_EMPTY = "Resources key empty or not present"
 CROWDSTRIKE_ERR_DATAFEED_EMPTY = "Datafeed key empty or not present"
 CROWDSTRIKE_ERR_META_KEY_EMPTY = "Meta key empty or not present"
 CROWDSTRIKE_ERR_SESSION_TOKEN_NOT_FOUND = "Session token, not found"
-CROWDSTRIKE_MSG_GETTING_EVENTS = "Getting maximum {max_events} events from id {lower_id} onwards (ids might not be contiguous)"
+CROWDSTRIKE_MSG_GETTING_EVENTS = "Getting maximum {max_events} DetectionSummaryEvents from id {lower_id} onwards (ids might not be contiguous)"
 CROWDSTRIKE_NO_MORE_FEEDS_AVAILABLE = "No more feeds available"
 CROWDSTRIKE_JSON_UUID = "uuid"
 CROWDSTRIKE_JSON_API_KEY = "api_key"
@@ -38,3 +38,4 @@ CROWDSTRIKE_ERR_CONN_FAILED += "\r\nYou can also try choosing a different Access
 
 DEFAULT_POLLNOW_EVENTS_COUNT = 2000
 DEFAULT_EVENTS_COUNT = 10000
+DEFAULT_BLANK_LINES_ALLOWABLE_LIMIT = 50

@@ -80,11 +80,17 @@
             "default": 0,
             "required": false
         },
+        "max_crlf": {
+            "data_type": "numeric",
+            "order": 9,
+            "description": "Maximum allowed total blank lines",
+            "required": false
+        },
         "preprocess_script": {
             "data_type": "file",
             "description": "Script with functions to preprocess containers and artifacts",
             "required": false,
-            "order": 9
+            "order": 10
         }
     },
     "actions": [

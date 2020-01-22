@@ -1,5 +1,5 @@
 # File: crowdstrike_connector.py
-# Copyright (c) 2016-2019 Splunk Inc.
+# Copyright (c) 2016-2020 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
@@ -293,6 +293,9 @@ class CrowdstrikeConnector(BaseConnector):
     def _make_rest_call(self, endpoint, result, headers={}, params={}, method='get'):
 
         if (self._parameters):
+            # config = self.get_config()
+            # app_id = config.get('app_id', self.get_asset_id().replace('-', ''))
+            # self._parameters['appId'] = "{}_{}".format(app_id.split('_')[0], int(time.time()))
             params.update(self._parameters)
 
         if (self._headers):
@@ -378,11 +381,13 @@ class CrowdstrikeConnector(BaseConnector):
         if lower_id < 0:
             lower_id = 0
 
+        max_crlf = int(config.get("max_crlf", DEFAULT_BLANK_LINES_ALLOWABLE_LIMIT))
+
         self.save_progress(CROWDSTRIKE_MSG_GETTING_EVENTS.format(lower_id=lower_id, max_events=max_events))
 
         # Query for the events
         try:
-            r = requests.get(self._data_feed_url + '&offset={0}'.format(lower_id), headers={'Authorization': 'Token {0}'.format(self._token)},
+            r = requests.get(self._data_feed_url + '&offset={0}&eventType=DetectionSummaryEvent'.format(lower_id), headers={'Authorization': 'Token {0}'.format(self._token), 'Connection': 'Keep-Alive'},
                     stream=True)
         except Exception as e:
             return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, e)
@@ -398,27 +403,47 @@ class CrowdstrikeConnector(BaseConnector):
 
         # Parse the events
         resp_data = ''
+        counter = 0
         for chunk in r.iter_content(chunk_size=None):
-            if chunk == '\r\n':
+
+            if not chunk:
                 # Done with all the event data for now
+                self.debug_print("No data, terminating loop")
+                self.save_progress("No data, terminating loop")
                 break
+
+            if chunk == '\r\n':
+                # increment counter for counting of the blank lines
+                counter += 1
+                if counter > max_crlf:
+                    self.debug_print("CR/LF received on iteration: {} - terminating loop".format(counter))
+                    self.save_progress("CR/LF received on iteration: {} - terminating loop".format(counter))
+                    break
+                else:
+                    self.debug_print("CR/LF received on iteration {} - continuing".format(counter))
+                    self.save_progress("CR/LF received on iteration {} - continuing".format(counter))
+                    continue
+
             resp_data += chunk
 
             ret_val, resp_data = self._parse_resp_data(resp_data)
 
             if (phantom.is_fail(ret_val)):
-                self.debug_print("Chunk: ", chunk)
+                self.debug_print("On Poll failed for the chunk: ", chunk)
+                self.save_progress("On Poll failed for the chunk: ", chunk)
                 return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_UNABLE_TO_PARSE_DATA)
 
-            # resp_data is a dict
-            self._events.append(resp_data)
+            if resp_data and resp_data.get('metadata', {}).get('eventType') == 'DetectionSummaryEvent':
+                self._events.append(resp_data)
+
+            # Calculate length of DetectionSummaryEvents until now
             len_events = len(self._events)
 
             if max_events and len_events >= max_events:
                 self._events = self._events[:max_events]
                 break
 
-            self.send_progress("Pulled {0} events".format(len_events))
+            self.send_progress("Pulled {0} events".format(len(self._events)))
             # convert it to string
             resp_data = ''
 
