@@ -352,6 +352,9 @@ class CrowdstrikeConnector(BaseConnector):
 
         config = self.get_config()
 
+        max_crlf = int(config.get("max_crlf", DEFAULT_BLANK_LINES_ALLOWABLE_LIMIT))
+        merge_time_interval = int(config.get('merge_time_interval', 0))
+
         if (self.is_poll_now()):
             # Manual Poll Now
             try:
@@ -368,6 +371,12 @@ class CrowdstrikeConnector(BaseConnector):
         if max_events <= 0:
             return self.set_status(phantom.APP_ERROR, 'Please provide non-zero positive integer in the "max_events" configuration parameter')
 
+        if max_crlf < 0:
+            return self.set_status(phantom.APP_ERROR, 'Please provide non-zero positive integer in the "Maximum allowed continuous blank lines" configuration parameter')
+
+        if merge_time_interval < 0:
+            return self.set_status(phantom.APP_ERROR, 'Please provide non-zero positive integer in the "merge_time_interval" configuration parameter')
+
         lower_id = 0
         if (not self.is_poll_now()):
             # we only mange the ids in case of on_poll on the interval
@@ -381,8 +390,6 @@ class CrowdstrikeConnector(BaseConnector):
         # In case of invalid lower_id, set the lower_id offset to the starting point 0
         if lower_id < 0:
             lower_id = 0
-
-        max_crlf = int(config.get("max_crlf", DEFAULT_BLANK_LINES_ALLOWABLE_LIMIT))
 
         self.save_progress(CROWDSTRIKE_MSG_GETTING_EVENTS.format(lower_id=lower_id, max_events=max_events))
 
