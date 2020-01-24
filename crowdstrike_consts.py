@@ -18,6 +18,7 @@ CROWDSTRIKE_ERR_CONNECTIVITY_TEST = "Connectivity test failed"
 CROWDSTRIKE_ERR_CONNECTING = "Error connecting to server"
 CROWDSTRIKE_ERR_FROM_SERVER = "Error from Server, Status Code: {status}, Message: {message}"
 CROWDSTRIKE_UNABLE_TO_PARSE_DATA = "Unable to parse data from server"
+CROWDSTRIKE_ERR_EVENTS_FETCH = "Error occurred while fetching the DetectionSummaryEvents from the CrowdStrike server datafeed URL stream"
 
 # Progress messages format string
 CROWDSTRIKE_USING_BASE_URL = "Using base url: {base_url}"

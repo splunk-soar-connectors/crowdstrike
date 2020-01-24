@@ -21,6 +21,7 @@ import parse_cs_events as events_parser
 import json
 import cs.hmac.client as client
 import imp
+from bs4 import UnicodeDammit
 
 
 class CrowdstrikeConnector(BaseConnector):
@@ -387,8 +388,8 @@ class CrowdstrikeConnector(BaseConnector):
 
         # Query for the events
         try:
-            r = requests.get(self._data_feed_url + '&offset={0}&eventType=DetectionSummaryEvent'.format(lower_id), headers={'Authorization': 'Token {0}'.format(self._token), 'Connection': 'Keep-Alive'},
-                    stream=True)
+            self._data_feed_url = self._data_feed_url + '&offset={0}&eventType=DetectionSummaryEvent'.format(lower_id)
+            r = requests.get(self._data_feed_url, headers={'Authorization': 'Token {0}'.format(self._token), 'Connection': 'Keep-Alive'}, stream=True)
         except Exception as e:
             return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, e)
 
@@ -403,60 +404,75 @@ class CrowdstrikeConnector(BaseConnector):
 
         # Parse the events
         resp_data = ''
-        counter = 0
-        for chunk in r.iter_content(chunk_size=None):
+        counter = 0   # counter for continuous blank lines
+        total_blank_lines_count = 0    # counter for total number of blank lines
 
-            if not chunk:
-                # Done with all the event data for now
-                self.debug_print("No data, terminating loop")
-                self.save_progress("No data, terminating loop")
-                break
+        try:
+            for chunk in r.iter_content(chunk_size=None):
 
-            if chunk == '\r\n':
-                # increment counter for counting of the blank lines
-                counter += 1
-                if counter > max_crlf:
-                    self.debug_print("CR/LF received on iteration: {} - terminating loop".format(counter))
-                    self.save_progress("CR/LF received on iteration: {} - terminating loop".format(counter))
+                if not chunk:
+                    # Done with all the event data for now
+                    self.debug_print("No data, terminating loop")
+                    self.save_progress("No data, terminating loop")
                     break
-                else:
-                    self.debug_print("CR/LF received on iteration {} - continuing".format(counter))
-                    self.save_progress("CR/LF received on iteration {} - continuing".format(counter))
-                    continue
 
-            resp_data += chunk
+                if chunk == '\r\n':
+                    # increment counter for counting of the continuous as well as total blank lines
+                    counter += 1
+                    total_blank_lines_count += 1
 
-            ret_val, resp_data = self._parse_resp_data(resp_data)
+                    if counter > max_crlf:
+                        self.debug_print("CR/LF received on iteration: {} - terminating loop".format(counter))
+                        self.save_progress("CR/LF received on iteration: {} - terminating loop".format(counter))
+                        break
+                    else:
+                        self.debug_print("CR/LF received on iteration {} - continuing".format(counter))
+                        self.save_progress("CR/LF received on iteration {} - continuing".format(counter))
+                        continue
 
-            if (phantom.is_fail(ret_val)):
-                self.debug_print("On Poll failed for the chunk: ", chunk)
-                self.save_progress("On Poll failed for the chunk: ", chunk)
-                return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_UNABLE_TO_PARSE_DATA)
+                resp_data += chunk
 
-            if resp_data and resp_data.get('metadata', {}).get('eventType') == 'DetectionSummaryEvent':
-                self._events.append(resp_data)
+                ret_val, resp_data = self._parse_resp_data(resp_data)
 
-            # Calculate length of DetectionSummaryEvents until now
-            len_events = len(self._events)
+                if (phantom.is_fail(ret_val)):
+                    self.debug_print("On Poll failed for the chunk: ", chunk)
+                    self.save_progress("On Poll failed for the chunk: ", chunk)
+                    return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_UNABLE_TO_PARSE_DATA)
 
-            if max_events and len_events >= max_events:
-                self._events = self._events[:max_events]
-                break
+                if resp_data and resp_data.get('metadata', {}).get('eventType') == 'DetectionSummaryEvent':
+                    self._events.append(resp_data)
+                    counter = 0   # reset the continuous blank lines counter as we received a valid data in between
 
-            self.send_progress("Pulled {0} events".format(len(self._events)))
-            # convert it to string
-            resp_data = ''
+                # Calculate length of DetectionSummaryEvents until now
+                len_events = len(self._events)
+
+                if max_events and len_events >= max_events:
+                    self._events = self._events[:max_events]
+                    break
+
+                self.send_progress("Pulled {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))
+                self.debug_print("Pulled {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))
+                # convert it to string
+                resp_data = ''
+        except Exception as e:
+            err_msg = e.message if e.message else "Unknown error occurred."
+            return self.set_status(phantom.APP_ERROR, "{}. Error response from server: {}".format(
+                                        CROWDSTRIKE_ERR_EVENTS_FETCH, UnicodeDammit(err_msg).unicode_markup.encode('utf-8')))
 
         # Check if to collate the data or not
         collate = config.get('collate', True)
 
         self.send_progress(" ")
-        self.debug_print("Got {0} Events".format(len(self._events)))
-        self.save_progress("Got {0} Events".format(len(self._events)))
-        if (len(self._events) > 0):
-            self.send_progress("Parsing them...")
+
+        self.debug_print("Total blank lines count: {}".format(total_blank_lines_count))
+        self.save_progress("Total blank lines count: {}".format(total_blank_lines_count))
+        self.debug_print("Got {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))   # total events count
+        self.save_progress("Got {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))
+
+        if self._events:
+            self.send_progress("Parsing the fetched DetectionSummaryEvents...")
             results = events_parser.parse_events(self._events, self, collate)
-            self.save_progress("Created {0} relevant results from events".format(len(results)))
+            self.save_progress("Created {0} relevant results from the fetched DetectionSummaryEvents".format(len(results)))
             if (results):
                 self.save_progress("Adding {0} event artifact{1}. Empty containers will be skipped.".format(len(results), 's' if len(results) > 1 else ''))
                 self._save_results(results, param)
