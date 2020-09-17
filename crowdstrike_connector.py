@@ -72,8 +72,12 @@ class CrowdstrikeConnector(BaseConnector):
             return self.set_status(phantom.APP_ERROR, 'Invalid access key')
 
         # create the Auth
+<<<<<<< HEAD
         self._auth = client.Auth(uuid=str(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_UUID])),
                api_key=str(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_API_KEY])), access=str(access_key))
+=======
+        self._auth = client.Auth(uuid=str(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_UUID])), api_key=str(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_API_KEY])), access=str(access_key))
+>>>>>>> 31229d35b861471de73152da0e1a8178ffadaa46
 
         # set the params, use the asset id as the appId that is passed Crowdstrike
         app_id = self._handle_py_ver_compat_for_input_str(config.get('app_id', self.get_asset_id().replace('-', '')))
@@ -374,9 +378,6 @@ class CrowdstrikeConnector(BaseConnector):
     def _make_rest_call(self, endpoint, result, headers={}, params={}, method='get'):
 
         if (self._parameters):
-            # config = self.get_config()
-            # app_id = config.get('app_id', self.get_asset_id().replace('-', ''))
-            # self._parameters['appId'] = "{}_{}".format(app_id.split('_')[0], int(time.time()))
             params.update(self._parameters)
 
         if (self._headers):
@@ -396,6 +397,7 @@ class CrowdstrikeConnector(BaseConnector):
         # The client object cribs if header is specified as None
         if (headers):
             kwargs['headers'] = headers
+
 
         url = "{0}{1}".format(self._base_url, endpoint)
 
