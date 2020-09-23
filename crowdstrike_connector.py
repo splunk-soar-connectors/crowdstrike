@@ -171,21 +171,24 @@ class CrowdstrikeConnector(BaseConnector):
         :param parameter: input parameter
         :return: integer value of the parameter or None in case of failure
         """
-        try:
-            if not float(parameter).is_integer():
+        if parameter is not None:
+            try:
+                if not float(parameter).is_integer():
+                    self.set_status(phantom.APP_ERROR, "Please provide a valid integer value in the {} parameter".format(key))
+                    return None
+                parameter = int(parameter)
+
+            except:
                 self.set_status(phantom.APP_ERROR, "Please provide a valid integer value in the {} parameter".format(key))
                 return None
-            parameter = int(parameter)
-            if not allow_zero and parameter <= 0:
-                self.set_status(phantom.APP_ERROR, CROWDSTRIKE_LIMIT_VALIDATION_MSG.format(parameter=key))
+
+            if parameter < 0:
+                self.set_status(phantom.APP_ERROR, "Please provide a valid non-negative integer value in the {} parameter".format(key))
                 return None
-            elif allow_zero and parameter < 0:
-                self.set_status(phantom.APP_ERROR, CROWDSTRIKE_LIMIT_VALIDATION_ALLOW_ZERO_MSG.format(parameter=key))
+            if not allow_zero and parameter == 0:
+                self.set_status(phantom.APP_ERROR, "Please provide non-zero positive integer in {}".format(key))
                 return None
-        except:
-            error_text = CROWDSTRIKE_LIMIT_VALIDATION_ALLOW_ZERO_MSG.format(parameter=key) if allow_zero else CROWDSTRIKE_LIMIT_VALIDATION_MSG.format(parameter=key)
-            self.set_status(phantom.APP_ERROR, error_text)
-            return None
+
         return parameter
 
     def _get_error_message_from_exception(self, e):
@@ -394,7 +397,6 @@ class CrowdstrikeConnector(BaseConnector):
         if (headers):
             kwargs['headers'] = headers
 
-
         url = "{0}{1}".format(self._base_url, endpoint)
 
         try:
@@ -407,7 +409,7 @@ class CrowdstrikeConnector(BaseConnector):
 
         try:
             resp_json = r.json()
-        except Exception as e:
+        except Exception:
             return (result.set_status(phantom.APP_ERROR, "Response does not look like a valid JSON"), None)
 
         if (r.status_code != requests.codes.ok):  # pylint: disable=E1101
@@ -623,7 +625,7 @@ if __name__ == '__main__':
 
     if (username and password):
         try:
-            print ("Accessing the Login page")
+            print("Accessing the Login page")
             r = requests.get(BaseConnector._get_phantom_base_url() + "login", verify=False)
             csrftoken = r.cookies['csrftoken']
 
@@ -636,11 +638,11 @@ if __name__ == '__main__':
             headers['Cookie'] = 'csrftoken=' + csrftoken
             headers['Referer'] = BaseConnector._get_phantom_base_url() + 'login'
 
-            print ("Logging into Platform to get the session id")
+            print("Logging into Platform to get the session id")
             r2 = requests.post(BaseConnector._get_phantom_base_url() + "login", verify=False, data=data, headers=headers)
             session_id = r2.cookies['sessionid']
         except Exception as e:
-            print ("Unable to get session id from the platfrom. Error: " + str(e))
+            print("Unable to get session id from the platfrom. Error: " + str(e))
             exit(1)
 
     with open(args.input_test_json) as f:
@@ -656,6 +658,6 @@ if __name__ == '__main__':
             connector._set_csrf_info(csrftoken, headers['Referer'])
 
         ret_val = connector._handle_action(json.dumps(in_json), None)
-        print (json.dumps(json.loads(ret_val), indent=4))
+        print(json.dumps(json.loads(ret_val), indent=4))
 
     exit(0)
