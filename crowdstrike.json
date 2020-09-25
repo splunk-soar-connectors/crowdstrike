@@ -5,7 +5,7 @@
     "publisher": "Splunk",
     "type": "endpoint",
     "main_module": "crowdstrike_connector.py",
-    "app_version": "2.0.0",
+    "app_version": "1.2.43",
     "utctime_updated": "2019-08-28T20:15:31.000000Z",
     "package_name": "phantom_crowdstrike",
     "product_vendor": "CrowdStrike",
