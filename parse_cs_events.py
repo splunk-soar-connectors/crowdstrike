@@ -1,5 +1,5 @@
 # File: parse_cs_events.py
-# Copyright (c) 2016-2019 Splunk Inc.
+# Copyright (c) 2016-2020 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
@@ -11,6 +11,7 @@ from bs4 import UnicodeDammit
 import hashlib
 import json
 import time
+import sys
 
 _container_common = {
     "description": "Container added by Phantom",
@@ -46,8 +47,12 @@ def _get_value(in_dict, in_key, def_val=None, strip_it=True):
     if (in_key not in in_dict):
         return def_val
 
-    if (type(in_dict[in_key]) != str) and (type(in_dict[in_key]) != unicode):
-        return in_dict[in_key]
+    try:
+        if (type(in_dict[in_key]) != str) and (type(in_dict[in_key]) != unicode):
+            return in_dict[in_key]
+    except:
+        if (type(in_dict[in_key]) != str):
+            return in_dict[in_key]
 
     value = in_dict[in_key].strip() if (strip_it) else in_dict[in_key]
 
@@ -143,8 +148,13 @@ def _collate_results(detection_events):
             container = dict()
             ingest_event['container'] = container
             container.update(_container_common)
-            container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), 'at {0}'.format(creation_time) if (not machine_name)
-                else 'on {0} at {1}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8'), creation_time))
+            if sys.version_info[0] == 2:
+                container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), 'at {0}'.format(creation_time) if (not machine_name)
+                    else 'on {0} at {1}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8'), creation_time))
+            else:		
+                container['name'] = "{0} {1}".format(detection_name, 'at {0}'.format(creation_time) if (not machine_name)		
+                    else 'on {0} at {1}'.format(machine_name, creation_time))		
+            container['source_data_identifier'] = _create_dict_hash(container)
 
             # now the artifacts
             ingest_event['artifacts'] = artifacts = []
@@ -162,7 +172,11 @@ def _convert_to_cef_dict(output_dict, input_dict):
 
     time_keys = list()
     # convert any remaining keys in the event_details to follow the cef naming conventions
-    for k, v in input_dict.iteritems():
+    try:
+        input_dict_items = input_dict.iteritems()
+    except:
+        input_dict_items = input_dict.items()
+    for k, v in input_dict_items:
         new_key_name = k[:1].lower() + k[1:]
         output_dict[new_key_name] = v
         if (new_key_name.lower().endswith('time')):
@@ -186,7 +200,11 @@ def _set_cef_types(artifact, cef):
 
     cef_types = dict()
 
-    for k, v in cef.iteritems():
+    try:
+        cef_items = cef.iteritems()
+    except:
+        cef_items = cef.items()
+    for k, v in cef_items:
 
         if (k.lower().endswith('filename')):
             cef_types[k] = ['file name']
@@ -196,7 +214,11 @@ def _set_cef_types(artifact, cef):
             cef_types[k] = ['domain']
             continue
 
-        for contains, function in ph_utils.CONTAINS_VALIDATORS.iteritems():
+        try:
+            util_items = ph_utils.CONTAINS_VALIDATORS.iteritems()
+        except:
+            util_items = ph_utils.CONTAINS_VALIDATORS.items()
+        for contains, function in util_items:
             if (contains in IGNORE_CONTAINS_VALIDATORS):
                 continue
             try:
@@ -240,7 +262,7 @@ def _get_artifact_name(key_name):
     return artifact_name
 
 
-def _create_dict_hash( input_dict):
+def _create_dict_hash(input_dict):
 
     input_dict_str = None
 
@@ -251,6 +273,9 @@ def _create_dict_hash( input_dict):
         input_dict_str = json.dumps(input_dict, sort_keys=True)
     except:
         return None
+
+    if sys.version_info[0] == 3:
+        input_dict_str = UnicodeDammit(input_dict_str).unicode_markup.encode('utf-8')
 
     return hashlib.md5(input_dict_str).hexdigest()
 
@@ -384,9 +409,13 @@ def parse_events(events, base_connector, collate):
         container = dict()
         ingest_event['container'] = container
         container.update(_container_common)
-        container['name'] = "{0} on {1} at {2}".format(
+        if sys.version_info[0] == 2:
+            container['name'] = "{0} on {1} at {2}".format(
                                 UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), UnicodeDammit(hostname).unicode_markup.encode('utf-8'), creation_time)
+        else:		
+            container['name'] = "{0} on {1} at {2}".format(detection_name, hostname, creation_time)
         container['severity'] = _severity_map.get(str(event_details.get('Severity', 3)), 'medium')
+        container['source_data_identifier'] = _create_dict_hash(container)
 
         # now the artifacts, will just be one
         ingest_event['artifacts'] = artifacts = []

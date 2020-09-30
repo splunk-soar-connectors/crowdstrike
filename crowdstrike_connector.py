@@ -1,5 +1,5 @@
 # File: crowdstrike_connector.py
-# Copyright (c) 2016-2019 Splunk Inc.
+# Copyright (c) 2016-2020 Splunk Inc.
 #
 # SPLUNK CONFIDENTIAL - Use or disclosure of this material in whole or in part
 # without a valid written license from Splunk Inc. is PROHIBITED.
@@ -12,6 +12,7 @@ from phantom.base_connector import BaseConnector
 # THIS Connector imports
 from crowdstrike_consts import *
 
+import sys
 import requests
 # from requests.auth import HTTPBasicAuth
 from datetime import datetime
@@ -21,6 +22,7 @@ import parse_cs_events as events_parser
 import json
 import cs.hmac.client as client
 import imp
+from bs4 import UnicodeDammit
 
 
 class CrowdstrikeConnector(BaseConnector):
@@ -47,28 +49,35 @@ class CrowdstrikeConnector(BaseConnector):
 
         config = self.get_config()
 
+        # Fetching the Python major version
+        try:
+            self._python_version = int(sys.version_info[0])
+        except:
+            return self.set_status(phantom.APP_ERROR, "Error occurred while getting the Phantom server's Python major version.")
+
         try:
             # Base URL
-            self._base_url = config[CROWDSTRIKE_JSON_URL]
+            self._base_url = self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_URL])
 
             if (self._base_url[-1] == '/'):
                 self._base_url = self._base_url[:-1]
 
-            self._base_url = self._base_url.encode('utf-8')
         except Exception as e:
-            return self.set_status(phantom.APP_ERROR, 'Error occurred while processing the base_url provided in the asset configuration parameters. Error: {0}'.format(str(e)))
+            return self.set_status(phantom.APP_ERROR, 'Error occurred while processing the base_url provided in the asset configuration parameters. \
+                Error: {0}'.format(self._get_error_message_from_exception(e)))
 
-        access_key = self.ACCESS_KEYS.get(config[CROWDSTRIKE_JSON_ACCESS])
+        access_key = self.ACCESS_KEYS.get(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_ACCESS]))
 
         if (not access_key):
             return self.set_status(phantom.APP_ERROR, 'Invalid access key')
 
         # create the Auth
-        self._auth = client.Auth(uuid=str(config[CROWDSTRIKE_JSON_UUID].encode('utf-8')), api_key=str(config[CROWDSTRIKE_JSON_API_KEY]), access=str(access_key))
+        self._auth = client.Auth(uuid=str(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_UUID])),
+               api_key=str(self._handle_py_ver_compat_for_input_str(config[CROWDSTRIKE_JSON_API_KEY])), access=str(access_key))
 
         # set the params, use the asset id as the appId that is passed Crowdstrike
-        app_id = config.get('app_id', self.get_asset_id().replace('-', ''))
-        self._parameters = {'appId': app_id}
+        app_id = self._handle_py_ver_compat_for_input_str(config.get('app_id', self.get_asset_id().replace('-', '')))
+        self._parameters = {'appId': app_id.replace('-', '')}
 
         self._state = self.load_state()
 
@@ -91,10 +100,16 @@ class CrowdstrikeConnector(BaseConnector):
 
         if script:
             try:  # Try to laod in script to preprocess artifacts
-                self._script_module = imp.new_module('preprocess_methods')
-                exec script in self._script_module.__dict__
+                if self._python_version < 3:
+                    self._script_module = imp.new_module('preprocess_methods')
+                    exec(script, self._script_module.__dict__)
+                else:
+                    import importlib.util
+                    preprocess_methods = importlib.util.spec_from_loader('preprocess_methods', loader=None)
+                    self._script_module = importlib.util.module_from_spec(preprocess_methods)
+                    exec(script, self._script_module.__dict__)
             except Exception as e:
-                self.save_progress("Error loading custom script. Error: {}".format(str(e)))
+                self.save_progress("Error loading custom script. Error: {}".format(self._get_error_message_from_exception(e)))
                 return phantom.APP_ERROR
 
             try:
@@ -130,7 +145,7 @@ class CrowdstrikeConnector(BaseConnector):
                 self.debug_print("COUNT is ZERO")
                 return phantom.APP_SUCCESS
         except:
-                return phantom.APP_ERROR
+            return phantom.APP_ERROR
 
         # Extract values that we require for other calls
         resources = resp.get('resources')
@@ -148,6 +163,75 @@ class CrowdstrikeConnector(BaseConnector):
         self._token = session_token['token']
 
         return phantom.APP_SUCCESS
+
+    def _validate_integers(self, parameter, key, allow_zero=False):
+        """ This method is to check if the provided input parameter value
+        is a non-zero positive integer and returns the integer value of the parameter itself.
+        :param action_result: Action result or BaseConnector object
+        :param parameter: input parameter
+        :return: integer value of the parameter or None in case of failure
+        """
+        if parameter is not None:
+            try:
+                if not float(parameter).is_integer():
+                    self.set_status(phantom.APP_ERROR, CROWDSTRIKE_INTEGER_VALIDATION_MESSAGE.format(key))
+                    return None
+                parameter = int(parameter)
+
+            except:
+                self.set_status(phantom.APP_ERROR, CROWDSTRIKE_INTEGER_VALIDATION_MESSAGE.format(key))
+                return None
+
+            if parameter < 0:
+                self.set_status(phantom.APP_ERROR, "Please provide a valid non-negative integer value in the {} parameter".format(key))
+                return None
+            if not allow_zero and parameter == 0:
+                self.set_status(phantom.APP_ERROR, "Please provide non-zero positive integer in {}".format(key))
+                return None
+
+        return parameter
+
+    def _get_error_message_from_exception(self, e):
+        """ This method is used to get appropriate error message from the exception.
+        :param e: Exception object
+        :return: error message
+        """
+        error_msg = CROWDSTRIKE_ERROR_MESSAGE
+        error_code = CROWDSTRIKE_ERROR_CODE
+        try:
+            if hasattr(e, "args"):
+                if len(e.args) > 1:
+                    error_code = e.args[0]
+                    error_msg = e.args[1]
+                elif len(e.args) == 1:
+                    error_code = CROWDSTRIKE_ERROR_CODE
+                    error_msg = e.args[0]
+            else:
+                error_code = CROWDSTRIKE_ERROR_CODE
+                error_msg = CROWDSTRIKE_ERROR_MESSAGE
+        except:
+            error_code = CROWDSTRIKE_ERROR_CODE
+            error_msg = CROWDSTRIKE_ERROR_MESSAGE
+        try:
+            error_msg = self._handle_py_ver_compat_for_input_str(error_msg)
+        except TypeError:
+            error_msg = "Error occurred while connecting to the Crowdstrike server. Please check the asset configuration and|or the action parameters."
+        except:
+            error_msg = CROWDSTRIKE_ERROR_MESSAGE
+        return "Error Code: {0}. Error Message: {1}".format(error_code, error_msg)
+
+    def _handle_py_ver_compat_for_input_str(self, input_str):
+        """
+        This method returns the encoded|original string based on the Python version.
+        :param input_str: Input string to be processed
+        :return: input_str (Processed input string based on following logic 'input_str - Python 3; encoded input_str - Python 2')
+        """
+        try:
+            if input_str and self._python_version == 2:
+                input_str = UnicodeDammit(input_str).unicode_markup.encode('utf-8')
+        except:
+            self.debug_print("Error occurred while handling python 2to3 compatibility for the input string")
+        return input_str
 
     def _test_connectivity(self, param):
 
@@ -170,7 +254,7 @@ class CrowdstrikeConnector(BaseConnector):
         try:
             event = json.loads(data.strip('\r\n '))
         except Exception as e:
-            self.debug_print("Exception while parsing data: ", e.message)
+            self.debug_print("Exception while parsing data: ", self._get_error_message_from_exception(e))
             return (phantom.APP_ERROR, data)
 
         return (phantom.APP_SUCCESS, event)
@@ -186,14 +270,14 @@ class CrowdstrikeConnector(BaseConnector):
         try:
             r = requests.get(request_str, verify=False)
         except Exception as e:
-            self.debug_print("Error making local rest call: {0}".format(str(e)))
+            self.debug_print("Error making local rest call: {0}".format(self._get_error_message_from_exception(e)))
             self.debug_print('DB QUERY: {}'.format(request_str))
             return phantom.APP_ERROR, None
 
         try:
             resp_json = r.json()
         except Exception as e:
-            self.debug_print('Exception caught: {0}'.format(str(e)))
+            self.debug_print('Exception caught: {0}'.format(self._get_error_message_from_exception(e)))
             return phantom.APP_ERROR, None
 
         count = resp_json.get('count', 0)
@@ -212,7 +296,7 @@ class CrowdstrikeConnector(BaseConnector):
                 if most_recent_id is not None:
                     return phantom.APP_SUCCESS, most_recent_id
             except Exception as e:
-                self.debug_print("Caught Exception in parsing containers: {0}".format(str(e)))
+                self.debug_print("Caught Exception in parsing containers: {0}".format(self._get_error_message_from_exception(e)))
                 return phantom.APP_ERROR, None
         return phantom.APP_ERROR, None
 
@@ -249,6 +333,21 @@ class CrowdstrikeConnector(BaseConnector):
             if ('artifacts' not in result):
                 continue
 
+            if not container_id:
+                container = result['container']
+                if (hasattr(self, '_preprocess_container')):
+                    try:
+                        container = self._preprocess_container(container)
+                    except Exception as e:
+                        self.debug_print('Preprocess error: {}'.format(self._get_error_message_from_exception(e)))
+                ret_val, response, container_id = self.save_container(result['container'])
+                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
+                if (phantom.is_fail(ret_val)):
+                    self.debug_print("Error occurred while creating a new container")
+                    continue
+            else:
+                reused_containers += 1
+
             artifacts = result['artifacts']
 
             # get the length of the artifact, we might have trimmed it or not
@@ -262,26 +361,11 @@ class CrowdstrikeConnector(BaseConnector):
 
                 artifact['container_id'] = container_id
 
-            if container_id:
-                ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
-                self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
-                self.debug_print("Reusing container with id: {0}".format(container_id))
-                reused_containers += 1
-            else:
-                container = result['container']
-                container['artifacts'] = artifacts
-
-                if (hasattr(self, '_preprocess_container')):
-                    try:
-                        container = self._preprocess_container(container)
-                    except Exception as e:
-                        self.debug_print('Preprocess error: ' + e.message)
-
-                ret_val, response, container_id = self.save_container(result['container'])
-                self.debug_print("save_container returns, value: {0}, reason: {1}, id: {2}".format(ret_val, response, container_id))
-
-                if (phantom.is_fail(ret_val)):
-                    continue
+            ret_val, status_string, artifact_ids = self.save_artifacts(artifacts)
+            self.debug_print("save_artifacts returns, value: {0}, reason: {1}".format(ret_val, status_string))
+            self.debug_print("Container with id: {0}".format(container_id))
+            if phantom.is_fail(ret_val):
+                self.debug_print("Error occurred while adding {} artifacts to container: {}".format(len_artifacts, container_id))
 
             containers_processed += 1
 
@@ -318,14 +402,14 @@ class CrowdstrikeConnector(BaseConnector):
         try:
             r = client.get(url, Auth=self._auth, **kwargs)
         except Exception as e:
-            return (result.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, e), None)
+            return (result.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, self._get_error_message_from_exception(e)), None)
 
         if hasattr(result, 'add_debug_data'):
             result.add_debug_data({'r_text': r.text if r else 'r is None'})
 
         try:
             resp_json = r.json()
-        except Exception as e:
+        except Exception:
             return (result.set_status(phantom.APP_ERROR, "Response does not look like a valid JSON"), None)
 
         if (r.status_code != requests.codes.ok):  # pylint: disable=E1101
@@ -333,7 +417,7 @@ class CrowdstrikeConnector(BaseConnector):
                 err_message = resp_json['errors'][0]['message']
             except:
                 err_message = 'None'
-            return (result.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_FROM_SERVER, status=r.status_code, message=err_message), None)
+            return (result.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_FROM_SERVER, status=r.status_code, message=self._get_error_message_from_exception(err_message)), None)
 
         return (phantom.APP_SUCCESS, resp_json)
 
@@ -348,21 +432,34 @@ class CrowdstrikeConnector(BaseConnector):
 
         config = self.get_config()
 
+        self.debug_print("Validating 'max_crlf' asset configuration parameter")
+        max_crlf = self._validate_integers(config.get("max_crlf", DEFAULT_BLANK_LINES_ALLOWABLE_LIMIT), "max_crlf")
+        if max_crlf is None:
+            return self.get_status()
+        self.debug_print("Validating 'merge_time_interval' asset configuration parameter")
+        merge_time_interval = self._validate_integers(config.get('merge_time_interval', 0), "merge_time_interval", allow_zero=True)
+        if merge_time_interval is None:
+            return self.get_status()
+
         if (self.is_poll_now()):
             # Manual Poll Now
             try:
-                max_events = int(config.get('max_events_poll_now', DEFAULT_POLLNOW_EVENTS_COUNT))
+                self.debug_print("Validating 'max_events_poll_now' asset configuration parameter")
+                max_events = self._validate_integers(config.get('max_events_poll_now', DEFAULT_POLLNOW_EVENTS_COUNT), "max_events_poll_now")
+                if max_events is None:
+                    return self.get_status()
             except:
+                self.debug_print("Error occurred while validating 'max_events_poll_now' asset configuration parameter")
                 max_events = DEFAULT_POLLNOW_EVENTS_COUNT
         else:
             # Scheduled and Interval Polling
             try:
-                max_events = int(config.get('max_events', DEFAULT_EVENTS_COUNT))
+                self.debug_print("Validating 'max_events' asset configuration parameter")
+                max_events = self._validate_integers(config.get('max_events', DEFAULT_EVENTS_COUNT), "max_events")
+                if max_events is None:
+                    return self.get_status()
             except:
                 max_events = DEFAULT_EVENTS_COUNT
-
-        if max_events <= 0:
-            return self.set_status(phantom.APP_ERROR, 'Please provide non-zero positive integer in the "max_events" configuration parameter')
 
         lower_id = 0
         if (not self.is_poll_now()):
@@ -370,8 +467,11 @@ class CrowdstrikeConnector(BaseConnector):
             # For POLL NOW always start on 0
             # lower_id = int(self._get_lower_id())
             try:
+                self.debug_print("Fetching last_offset_id from the state file")
                 lower_id = int(self._state.get('last_offset_id', 0))
             except:
+                self.debug_print("Error occurred while fetching last_offset_id from the state file")
+                self.debug_print("Considering this run as first run")
                 lower_id = 0
 
         # In case of invalid lower_id, set the lower_id offset to the starting point 0
@@ -382,10 +482,10 @@ class CrowdstrikeConnector(BaseConnector):
 
         # Query for the events
         try:
-            r = requests.get(self._data_feed_url + '&offset={0}'.format(lower_id), headers={'Authorization': 'Token {0}'.format(self._token)},
-                    stream=True)
+            self._data_feed_url = self._data_feed_url + '&offset={0}&eventType=DetectionSummaryEvent'.format(lower_id)
+            r = requests.get(self._data_feed_url, headers={'Authorization': 'Token {0}'.format(self._token), 'Connection': 'Keep-Alive'}, stream=True)
         except Exception as e:
-            return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, e)
+            return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_CONNECTING, self._get_error_message_from_exception(e))
 
         # Handle any errors
         if (r.status_code != requests.codes.ok):  # pylint: disable=E1101
@@ -394,44 +494,81 @@ class CrowdstrikeConnector(BaseConnector):
                 err_message = resp_json['errors'][0]['message']
             except:
                 err_message = 'None'
-            return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_FROM_SERVER, status=r.status_code, message=err_message)
+            return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_ERR_FROM_SERVER, status=r.status_code, message=self._get_error_message_from_exception(err_message))
 
         # Parse the events
         resp_data = ''
-        for chunk in r.iter_content(chunk_size=None):
-            if chunk == '\r\n':
-                # Done with all the event data for now
-                break
-            resp_data += chunk
+        counter = 0   # counter for continuous blank lines
+        total_blank_lines_count = 0    # counter for total number of blank lines
 
-            ret_val, resp_data = self._parse_resp_data(resp_data)
+        try:
+            for chunk in r.iter_content(chunk_size=None):
+                if self._python_version == 3:
+                    chunk = UnicodeDammit(chunk).unicode_markup
 
-            if (phantom.is_fail(ret_val)):
-                self.debug_print("Chunk: ", chunk)
-                return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_UNABLE_TO_PARSE_DATA)
+                if not chunk:
+                    # Done with all the event data for now
+                    self.debug_print("No data, terminating loop")
+                    self.save_progress("No data, terminating loop")
+                    break
 
-            # resp_data is a dict
-            self._events.append(resp_data)
-            len_events = len(self._events)
+                if chunk == '\r\n':
+                    # increment counter for counting of the continuous as well as total blank lines
+                    counter += 1
+                    total_blank_lines_count += 1
 
-            if max_events and len_events >= max_events:
-                self._events = self._events[:max_events]
-                break
+                    if counter > max_crlf:
+                        self.debug_print("CR/LF received on iteration: {} - terminating loop".format(counter))
+                        self.save_progress("CR/LF received on iteration: {} - terminating loop".format(counter))
+                        break
+                    else:
+                        self.debug_print("CR/LF received on iteration {} - continuing".format(counter))
+                        self.save_progress("CR/LF received on iteration {} - continuing".format(counter))
+                        continue
 
-            self.send_progress("Pulled {0} events".format(len_events))
-            # convert it to string
-            resp_data = ''
+                resp_data += chunk
+
+                ret_val, resp_data = self._parse_resp_data(resp_data)
+
+                if (phantom.is_fail(ret_val)):
+                    self.debug_print("On Poll failed for the chunk: ", chunk)
+                    self.save_progress("On Poll failed for the chunk: ", chunk)
+                    return self.set_status(phantom.APP_ERROR, CROWDSTRIKE_UNABLE_TO_PARSE_DATA)
+
+                if resp_data and resp_data.get('metadata', {}).get('eventType') == 'DetectionSummaryEvent':
+                    self._events.append(resp_data)
+                    counter = 0   # reset the continuous blank lines counter as we received a valid data in between
+
+                # Calculate length of DetectionSummaryEvents until now
+                len_events = len(self._events)
+
+                if max_events and len_events >= max_events:
+                    self._events = self._events[:max_events]
+                    break
+
+                self.send_progress("Pulled {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))
+                self.debug_print("Pulled {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))
+                # convert it to string
+                resp_data = ''
+        except Exception as e:
+            err_msg = self._get_error_message_from_exception(e)
+            return self.set_status(phantom.APP_ERROR, "{}. Error response from server: {}".format(
+                                        CROWDSTRIKE_ERR_EVENTS_FETCH, err_msg))
 
         # Check if to collate the data or not
         collate = config.get('collate', True)
 
         self.send_progress(" ")
-        self.debug_print("Got {0} Events".format(len(self._events)))
-        self.save_progress("Got {0} Events".format(len(self._events)))
-        if (len(self._events) > 0):
-            self.send_progress("Parsing them...")
+
+        self.debug_print("Total blank lines count: {}".format(total_blank_lines_count))
+        self.save_progress("Total blank lines count: {}".format(total_blank_lines_count))
+        self.debug_print("Got {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))   # total events count
+        self.save_progress("Got {0} events of type 'DetectionSummaryEvent'".format(len(self._events)))
+
+        if self._events:
+            self.send_progress("Parsing the fetched DetectionSummaryEvents...")
             results = events_parser.parse_events(self._events, self, collate)
-            self.save_progress("Created {0} relevant results from events".format(len(results)))
+            self.save_progress("Created {0} relevant results from the fetched DetectionSummaryEvents".format(len(results)))
             if (results):
                 self.save_progress("Adding {0} event artifact{1}. Empty containers will be skipped.".format(len(results), 's' if len(results) > 1 else ''))
                 self._save_results(results, param)
@@ -488,7 +625,7 @@ if __name__ == '__main__':
 
     if (username and password):
         try:
-            print ("Accessing the Login page")
+            print("Accessing the Login page")
             r = requests.get(BaseConnector._get_phantom_base_url() + "login", verify=False)
             csrftoken = r.cookies['csrftoken']
 
@@ -501,11 +638,11 @@ if __name__ == '__main__':
             headers['Cookie'] = 'csrftoken=' + csrftoken
             headers['Referer'] = BaseConnector._get_phantom_base_url() + 'login'
 
-            print ("Logging into Platform to get the session id")
+            print("Logging into Platform to get the session id")
             r2 = requests.post(BaseConnector._get_phantom_base_url() + "login", verify=False, data=data, headers=headers)
             session_id = r2.cookies['sessionid']
         except Exception as e:
-            print ("Unable to get session id from the platfrom. Error: " + str(e))
+            print("Unable to get session id from the platfrom. Error: " + str(e))
             exit(1)
 
     with open(args.input_test_json) as f:
@@ -521,6 +658,6 @@ if __name__ == '__main__':
             connector._set_csrf_info(csrftoken, headers['Referer'])
 
         ret_val = connector._handle_action(json.dumps(in_json), None)
-        print (json.dumps(json.loads(ret_val), indent=4))
+        print(json.dumps(json.loads(ret_val), indent=4))
 
     exit(0)
