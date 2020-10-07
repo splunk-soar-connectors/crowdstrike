@@ -151,9 +151,9 @@ def _collate_results(detection_events):
             if sys.version_info[0] == 2:
                 container['name'] = "{0} {1}".format(UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), 'at {0}'.format(creation_time) if (not machine_name)
                     else 'on {0} at {1}'.format(UnicodeDammit(machine_name).unicode_markup.encode('utf-8'), creation_time))
-            else:		
-                container['name'] = "{0} {1}".format(detection_name, 'at {0}'.format(creation_time) if (not machine_name)		
-                    else 'on {0} at {1}'.format(machine_name, creation_time))		
+            else:
+                container['name'] = "{0} {1}".format(detection_name, 'at {0}'.format(creation_time) if (not machine_name)
+                    else 'on {0} at {1}'.format(machine_name, creation_time))
             container['source_data_identifier'] = _create_dict_hash(container)
 
             # now the artifacts
@@ -412,7 +412,7 @@ def parse_events(events, base_connector, collate):
         if sys.version_info[0] == 2:
             container['name'] = "{0} on {1} at {2}".format(
                                 UnicodeDammit(detection_name).unicode_markup.encode('utf-8'), UnicodeDammit(hostname).unicode_markup.encode('utf-8'), creation_time)
-        else:		
+        else:
             container['name'] = "{0} on {1} at {2}".format(detection_name, hostname, creation_time)
         container['severity'] = _severity_map.get(str(event_details.get('Severity', 3)), 'medium')
         container['source_data_identifier'] = _create_dict_hash(container)
