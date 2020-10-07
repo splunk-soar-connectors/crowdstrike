@@ -4,18 +4,22 @@
     "description": "This app integrates with CrowdStrike security services to implement ingestion of endpoint security data",
     "publisher": "Splunk",
     "type": "endpoint",
-    "main_module": "crowdstrike_connector.pyc",
-    "app_version": "1.2.44",
-    "utctime_updated": "2019-08-29T00:24:02.000000Z",
+    "main_module": "crowdstrike_connector.py",
+    "app_version": "2.0.3",
+    "utctime_updated": "2020-10-07T09:24:01.000000Z",
     "package_name": "phantom_crowdstrike",
     "product_vendor": "CrowdStrike",
     "product_name": "FalconHost",
     "product_version_regex": ".*",
-    "min_phantom_version": "4.2.7532",
+    "min_phantom_version": "4.8.23403",
+    "python_version": "3",
     "app_config_render": "default",
     "logo": "logo_crowdstrike.svg",
     "logo_dark": "logo_crowdstrike_dark.svg",
-    "license": "Copyright (c) 2016-2019 Splunk Inc.",
+    "license": "Copyright (c) 2016-2020 Splunk Inc.",
+    "latest_tested_versions": [
+        "API firehose.crowdstrike.com, September 18, 2020, API version: v1"
+    ],
     "configuration": {
         "url": {
             "data_type": "string",
@@ -49,42 +53,42 @@
         "app_id": {
             "data_type": "string",
             "order": 4,
-            "description": "App ID",
-            "required": false
+            "description": "App ID"
         },
         "max_events": {
             "data_type": "numeric",
             "order": 5,
             "description": "Maximum events to get for scheduled and interval polling",
-            "default": "10000",
-            "required": false
+            "default": 10000
         },
         "max_events_poll_now": {
             "data_type": "numeric",
             "order": 6,
             "description": "Maximum events to get while POLL NOW",
-            "default": "2000",
-            "required": false
+            "default": 2000
         },
         "collate": {
             "data_type": "boolean",
             "order": 7,
             "description": "Merge containers for hostname and eventname",
-            "default": true,
-            "required": false
+            "default": true
         },
         "merge_time_interval": {
             "data_type": "numeric",
             "order": 8,
             "description": "Merge same containers within specified seconds",
-            "default": 0,
-            "required": false
+            "default": 0
+        },
+        "max_crlf": {
+            "data_type": "numeric",
+            "order": 9,
+            "default": 50,
+            "description": "Maximum allowed continuous blank lines"
         },
         "preprocess_script": {
             "data_type": "file",
             "description": "Script with functions to preprocess containers and artifacts",
-            "required": false,
-            "order": 9
+            "order": 10
         }
     },
     "actions": [

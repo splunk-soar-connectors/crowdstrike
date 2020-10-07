@@ -1,7 +1,4 @@
-crowdstrike_connector.py
 docker-compose.yml
 Makefile
-parse_cs_events.py
 .git*
 .gitlab-ci.yml
-crowdstrike_consts.py
