@@ -1,4 +1,5 @@
 docker-compose.yml
+.gitlab-ci.yml
 Makefile
 .git*
-.gitlab-ci.yml
+whitesource-results
