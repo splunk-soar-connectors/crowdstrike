@@ -1,3 +1,0 @@
-[submodule "cs"]
-	path = cs
-	url = git@cd.splunkdev.com:phantom-external/crowdstrike.git
