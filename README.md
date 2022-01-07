@@ -1,3 +1,15 @@
+[comment]: # "Auto-generated SOAR connector documentation"
+# Crowdstrike Streaming API
+
+Publisher: Splunk  
+Connector Version: 2\.0\.6  
+Product Vendor: CrowdStrike  
+Product Name: FalconHost  
+Product Version Supported (regex): "\.\*"  
+Minimum Product Version: 4\.8\.23403  
+
+This app integrates with CrowdStrike security services to implement ingestion of endpoint security data
+
 [comment]: # " File: readme.md"
 [comment]: # "  Copyright (c) 2016-2020 Splunk Inc."
 [comment]: # ""
@@ -101,3 +113,56 @@ The App also parses the following **sub-events** into their own Artifacts.
 
 Each of the sub-events has a CEF key called **parentSdi** that stands for Parent Source Data
 Identifier. This is the value of the SDI of the main event that the sub-events were generated from.
+
+
+### Configuration Variables
+The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a FalconHost asset in SOAR.
+
+VARIABLE | REQUIRED | TYPE | DESCRIPTION
+-------- | -------- | ---- | -----------
+**url** |  required  | string | Base URL
+**uuid** |  required  | string | UUID
+**api\_key** |  required  | password | API Key
+**access** |  required  | string | Access Type
+**app\_id** |  optional  | string | App ID
+**max\_events** |  optional  | numeric | Maximum events to get for scheduled and interval polling
+**max\_events\_poll\_now** |  optional  | numeric | Maximum events to get while POLL NOW
+**collate** |  optional  | boolean | Merge containers for hostname and eventname
+**merge\_time\_interval** |  optional  | numeric | Merge same containers within specified seconds
+**max\_crlf** |  optional  | numeric | Maximum allowed continuous blank lines
+**preprocess\_script** |  optional  | file | Script with functions to preprocess containers and artifacts
+
+### Supported Actions  
+[test connectivity](#action-test-connectivity) - Validate the asset configuration for connectivity\. This action logs into the site to check the connection and credentials  
+[on poll](#action-on-poll) - Callback action for the on\_poll ingest functionality  
+
+## action: 'test connectivity'
+Validate the asset configuration for connectivity\. This action logs into the site to check the connection and credentials
+
+Type: **test**  
+Read only: **True**
+
+#### Action Parameters
+No parameters are required for this action
+
+#### Action Output
+No Output  
+
+## action: 'on poll'
+Callback action for the on\_poll ingest functionality
+
+Type: **ingest**  
+Read only: **True**
+
+This action remembers the last event ID that was queried for\. The next ingestion carried out will query for later event IDs\. This way the same events are not queried for in every run\. However, in case of 'POLL NOW' queried event IDs will not be remembered\.
+
+#### Action Parameters
+PARAMETER | REQUIRED | DESCRIPTION | TYPE | CONTAINS
+--------- | -------- | ----------- | ---- | --------
+**start\_time** |  optional  | Parameter ignored in this app | numeric | 
+**end\_time** |  optional  | Parameter ignored in this app | numeric | 
+**container\_count** |  optional  | Parameter ignored in this app | numeric | 
+**artifact\_count** |  optional  | Parameter ignored in this app | numeric | 
+
+#### Action Output
+No Output
