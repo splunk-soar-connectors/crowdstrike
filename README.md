@@ -2,15 +2,15 @@
 # Crowdstrike Streaming API
 
 Publisher: Splunk  
-Connector Version: 2\.0\.6  
+Connector Version: 2.0.7  
 Product Vendor: CrowdStrike  
 Product Name: FalconHost  
-Product Version Supported (regex): "\.\*"  
-Minimum Product Version: 4\.8\.23403  
+Product Version Supported (regex): ".\*"  
+Minimum Product Version: 4.8.23403  
 
 This app integrates with CrowdStrike security services to implement ingestion of endpoint security data
 
-[comment]: # " File: readme.md"
+[comment]: # " File: README.md"
 [comment]: # "  Copyright (c) 2016-2020 Splunk Inc."
 [comment]: # ""
 [comment]: # "Licensed under the Apache License, Version 2.0 (the 'License');"
@@ -52,7 +52,7 @@ error.
         below-mentioned 2 cases whichever is earlier.
         -   If the total DetectionSummaryEvents fetched equals the value provided in the \[Maximum
             events to get while POLL NOW\] (for manual polling) or \[Maximum events to get while
-            scheduled and interval polling\] (for scheduled \| interval polling) parameters
+            scheduled and interval polling\] (for scheduled | interval polling) parameters
         -   If the total number of continuous blank lines encountered while streaming the data
             equals the value provided in the \[Maximum allowed continuous blank lines\] (default 50
             if not specified) asset configuration parameter
@@ -79,8 +79,8 @@ error.
         creates artifacts for all the fetched DetectionSummaryEvents. The last queried event's
         offset ID will not be remembered in Manual POLL NOW and it fetches everything every time
         from the beginning.
--   Scheduled \| Interval Polling
-    -   During scheduled \| interval polling, the app starts from the 1st event that it can query up
+-   Scheduled | Interval Polling
+    -   During scheduled | interval polling, the app starts from the 1st event that it can query up
         to the value configured in the configuration parameter \[Maximum events to get while
         scheduled and interval polling\] and creates artifacts for all the fetched
         DetectionSummaryEvents. Then, it remembers the last event's offset ID and stores in the
@@ -122,22 +122,22 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
 **url** |  required  | string | Base URL
 **uuid** |  required  | string | UUID
-**api\_key** |  required  | password | API Key
+**api_key** |  required  | password | API Key
 **access** |  required  | string | Access Type
-**app\_id** |  optional  | string | App ID
-**max\_events** |  optional  | numeric | Maximum events to get for scheduled and interval polling
-**max\_events\_poll\_now** |  optional  | numeric | Maximum events to get while POLL NOW
+**app_id** |  optional  | string | App ID
+**max_events** |  optional  | numeric | Maximum events to get for scheduled and interval polling
+**max_events_poll_now** |  optional  | numeric | Maximum events to get while POLL NOW
 **collate** |  optional  | boolean | Merge containers for hostname and eventname
-**merge\_time\_interval** |  optional  | numeric | Merge same containers within specified seconds
-**max\_crlf** |  optional  | numeric | Maximum allowed continuous blank lines
-**preprocess\_script** |  optional  | file | Script with functions to preprocess containers and artifacts
+**merge_time_interval** |  optional  | numeric | Merge same containers within specified seconds
+**max_crlf** |  optional  | numeric | Maximum allowed continuous blank lines
+**preprocess_script** |  optional  | file | Script with functions to preprocess containers and artifacts
 
 ### Supported Actions  
-[test connectivity](#action-test-connectivity) - Validate the asset configuration for connectivity\. This action logs into the site to check the connection and credentials  
-[on poll](#action-on-poll) - Callback action for the on\_poll ingest functionality  
+[test connectivity](#action-test-connectivity) - Validate the asset configuration for connectivity. This action logs into the site to check the connection and credentials  
+[on poll](#action-on-poll) - Callback action for the on_poll ingest functionality  
 
 ## action: 'test connectivity'
-Validate the asset configuration for connectivity\. This action logs into the site to check the connection and credentials
+Validate the asset configuration for connectivity. This action logs into the site to check the connection and credentials
 
 Type: **test**  
 Read only: **True**
@@ -149,20 +149,20 @@ No parameters are required for this action
 No Output  
 
 ## action: 'on poll'
-Callback action for the on\_poll ingest functionality
+Callback action for the on_poll ingest functionality
 
 Type: **ingest**  
 Read only: **True**
 
-This action remembers the last event ID that was queried for\. The next ingestion carried out will query for later event IDs\. This way the same events are not queried for in every run\. However, in case of 'POLL NOW' queried event IDs will not be remembered\.
+This action remembers the last event ID that was queried for. The next ingestion carried out will query for later event IDs. This way the same events are not queried for in every run. However, in case of 'POLL NOW' queried event IDs will not be remembered.
 
 #### Action Parameters
 PARAMETER | REQUIRED | DESCRIPTION | TYPE | CONTAINS
 --------- | -------- | ----------- | ---- | --------
-**start\_time** |  optional  | Parameter ignored in this app | numeric | 
-**end\_time** |  optional  | Parameter ignored in this app | numeric | 
-**container\_count** |  optional  | Parameter ignored in this app | numeric | 
-**artifact\_count** |  optional  | Parameter ignored in this app | numeric | 
+**start_time** |  optional  | Parameter ignored in this app | numeric | 
+**end_time** |  optional  | Parameter ignored in this app | numeric | 
+**container_count** |  optional  | Parameter ignored in this app | numeric | 
+**artifact_count** |  optional  | Parameter ignored in this app | numeric | 
 
 #### Action Output
 No Output
