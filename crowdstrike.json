@@ -162,5 +162,8 @@
                 "input_file": "wheels/urllib3-1.26.7-py2.py3-none-any.whl"
             }
         ]
+    },
+    "pip39_dependencies": {
+        "wheel": []
     }
 }

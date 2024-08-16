@@ -1,12 +1,14 @@
 """ Crowdstrike Rest Client """
 
-import sys
-import hmac
-import hashlib
 import base64
 import email
+import hashlib
+import hmac
 import json
+import sys
+
 import requests
+
 try:
     import urlparse
 except:
@@ -15,10 +17,12 @@ try:
     import urllib
 except:
     import urllib.request, urllib.parse, urllib.error
+
 import collections
 import functools
 import os
 import posixpath
+
 
 def enable_debug():
     """ Enable debug mode """
@@ -29,7 +33,7 @@ def enable_debug():
         import http.client as http_client
 
     http_client.HTTPConnection.debuglevel = 1
-    logging.basicConfig() 
+    logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
     requests_log = logging.getLogger("requests.packages.urllib3")
     requests_log.setLevel(logging.DEBUG)
@@ -173,7 +177,7 @@ def api_signature(method, content_md5, date, path, query_string, auth):
         dig = hmac.new(auth.api_key, string_to_sign, hashlib.sha256).digest()
     else:
         dig = hmac.new(auth.api_key.encode('utf-8'), string_to_sign.encode('utf-8'), hashlib.sha256).digest()
-    return base64.b64encode(dig).decode() 
+    return base64.b64encode(dig).decode()
 
 
 ## PUBLIC API ##
@@ -189,4 +193,3 @@ delete = functools.partial(do_request, method="DELETE")
 patch = functools.partial(do_request, method="PATCH")
 
 head = functools.partial(do_request, method="HEAD")
-

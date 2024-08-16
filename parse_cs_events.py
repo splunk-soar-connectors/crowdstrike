@@ -12,14 +12,14 @@
 # the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
-from datetime import datetime
-from phantom import utils as ph_utils
-from bs4 import UnicodeDammit
-
 import hashlib
 import json
-import time
 import sys
+import time
+from datetime import datetime
+
+from bs4 import UnicodeDammit
+from phantom import utils as ph_utils
 
 _container_common = {
     "description": "Container added by Phantom",
