@@ -115,8 +115,8 @@ Each of the sub-events has a CEF key called **parentSdi** that stands for Parent
 Identifier. This is the value of the SDI of the main event that the sub-events were generated from.
 
 
-### Configuration Variables
-The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a FalconHost asset in SOAR.
+### Configuration variables
+This table lists the configuration variables required to operate Crowdstrike Streaming API. These variables are specified when configuring a FalconHost asset in Splunk SOAR.
 
 VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
