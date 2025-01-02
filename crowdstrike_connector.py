@@ -15,24 +15,26 @@
 #
 #
 # Phantom imports
-import phantom.app as phantom
-from phantom.base_connector import BaseConnector
-# from phantom.action_result import ActionResult
+import imp
+import json
+import sys
+import time
+# from requests.auth import HTTPBasicAuth
+from datetime import datetime, timedelta
 
+import phantom.app as phantom
+import requests
+from bs4 import UnicodeDammit
+from phantom.base_connector import BaseConnector
+
+import cs.hmac.client as client
+import parse_cs_events as events_parser
 # THIS Connector imports
 from crowdstrike_consts import *
 
-import sys
-import requests
-# from requests.auth import HTTPBasicAuth
-from datetime import datetime
-from datetime import timedelta
-import time
-import parse_cs_events as events_parser
-import json
-import cs.hmac.client as client
-import imp
-from bs4 import UnicodeDammit
+# from phantom.action_result import ActionResult
+
+
 
 
 class CrowdstrikeConnector(BaseConnector):
@@ -610,8 +612,9 @@ class CrowdstrikeConnector(BaseConnector):
 
 if __name__ == '__main__':
 
-    import pudb
     import argparse
+
+    import pudb
 
     pudb.set_trace()
 
